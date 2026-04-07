@@ -1,26 +1,28 @@
 import type { Store } from './store';
 
-export type ActionHandler<T extends any[] = any[], R = any> = (store: Store, ...args: T) => R | Promise<R>;
+export type ActionHandler<TArgs extends any[] = any[], TReturn = any> = (store: Store, ...args: TArgs) => TReturn | Promise<TReturn>;
+
+type AnyActionHandler = ActionHandler<any[], any>;
 
 export class ActionManager {
-  private actions = new Map<string, ActionHandler>();
+  private readonly actions = new Map<string, AnyActionHandler>();
   private readonly store: Store;
 
   constructor(store: Store) {
     this.store = store;
   }
 
-  register<T extends any[], R>(name: string, handler: ActionHandler<T, R>): this {
+  register<TArgs extends any[], TReturn>(name: string, handler: ActionHandler<TArgs, TReturn>): this {
     if (this.actions.has(name)) {
-      throw new Error(`Action "${name}" is already registered`);
+      throw new Error(`Action "${name}" is already registered.`);
     }
-    this.actions.set(name, handler as ActionHandler);
+    this.actions.set(name, handler as AnyActionHandler);
     return this;
   }
 
   unregister(name: string): this {
     if (!this.actions.delete(name)) {
-      throw new Error(`Action "${name}" not found`);
+      throw new Error(`Action "${name}" is not registered.`);
     }
     return this;
   }
@@ -33,27 +35,20 @@ export class ActionManager {
     return Array.from(this.actions.keys());
   }
 
-  async dispatch<T extends any[] = any[], R = any>(name: string, ...args: T): Promise<R> {
+  async dispatch<TArgs extends any[], TReturn>(name: string, ...args: TArgs): Promise<TReturn> {
     const handler = this.actions.get(name);
     if (!handler) {
       const available = this.getActionNames().join(', ');
-      throw new Error(`Action "${name}" not found. Available: ${available || 'none'}`);
+      throw new Error(`Action "${name}" not found. Available actions: ${available || '(none)'}`);
     }
-
-    // 前置钩子（可修改参数）
-    let processedArgs = this.store.plugins.triggerBeforeAction(name, args);
-    if (!Array.isArray(processedArgs)) {
-      processedArgs = args;
-    }
-
+    const rawBeforeResult = this.store.plugins.triggerBeforeAction(name, args);
+    const processedArgs = Array.isArray(rawBeforeResult) ? rawBeforeResult : args;
     try {
       const result = await handler(this.store, ...processedArgs);
-      // 后置钩子
       this.store.plugins.triggerAfterAction(name, result, processedArgs);
-      return result as R;
+      return result as TReturn;
     } catch (error) {
-      // 错误钩子
-      this.store.plugins.triggerErrorAction(name, error as Error, processedArgs);
+      this.store.plugins.triggerErrorAction(name, error instanceof Error ? error : new Error(String(error)), processedArgs);
       throw error;
     }
   }
