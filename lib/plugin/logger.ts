@@ -1,9 +1,19 @@
 import type { Plugin, Store } from '../core';
 
+/**
+ * 日志插件配置选项
+ */
 export interface LoggerOptions {
+  /** 是否记录 action，默认 true */
   logActions?: boolean;
+
+  /** 是否记录数据变更，默认 true */
   logDataChanges?: boolean;
+
+  /** 自定义日志输出对象，默认 console */
   logger?: Pick<Console, 'log' | 'group' | 'groupEnd' | 'error'>;
+
+  /** 是否显示耗时，默认 true */
   showDuration?: boolean;
 }
 
@@ -14,6 +24,11 @@ const defaultOptions: Required<LoggerOptions> = {
   showDuration: true,
 };
 
+/**
+ * 日志记录插件 提供 action 执行和数据变更的日志记录功能
+ * @param options - 插件配置选项
+ * @returns 插件实例
+ */
 export const loggerPlugin = (options: LoggerOptions = {}): Plugin<Store> => {
   const opts = {...defaultOptions, ...options};
   const startTimeStack: number[] = [];
@@ -22,14 +37,25 @@ export const loggerPlugin = (options: LoggerOptions = {}): Plugin<Store> => {
     name: 'logger',
     version: '1.0.0',
 
+    /**
+     * 安装插件时打印日志
+     */
     install() {
       opts.logger.log?.('[Logger] 插件已安装');
     },
 
+    /**
+     * 卸载插件时打印日志
+     */
     uninstall() {
       opts.logger.log?.('[Logger] 插件已卸载');
     },
 
+    /**
+     * Action 执行前记录日志
+     * @param actionName - action 名称
+     * @param args - 参数数组
+     */
     beforeAction(actionName: string, args: unknown[]): void {
       if (!opts.logActions) return;
 
@@ -43,6 +69,12 @@ export const loggerPlugin = (options: LoggerOptions = {}): Plugin<Store> => {
       }
     },
 
+    /**
+     * Action 执行成功后记录日志
+     * @param actionName - action 名称
+     * @param result - 执行结果
+     * @param args - 参数数组
+     */
     afterAction(actionName: string, result: unknown, args: unknown[]): void {
       if (!opts.logActions) return;
 
@@ -59,6 +91,12 @@ export const loggerPlugin = (options: LoggerOptions = {}): Plugin<Store> => {
       opts.logger.groupEnd?.();
     },
 
+    /**
+     * Action 执行出错时记录日志
+     * @param actionName - action 名称
+     * @param error - 错误对象
+     * @param args - 参数数组
+     */
     onError(actionName: string, error: Error, args: unknown[]): void {
       if (!opts.logActions) return;
 
@@ -74,6 +112,12 @@ export const loggerPlugin = (options: LoggerOptions = {}): Plugin<Store> => {
       opts.logger.groupEnd?.();
     },
 
+    /**
+     * 数据变更时记录日志
+     * @param path - 变更路径
+     * @param newValue - 新值
+     * @param oldValue - 旧值
+     */
     onDataChange(path: string[], newValue: unknown, oldValue: unknown): void {
       if (!opts.logDataChanges) return;
 
