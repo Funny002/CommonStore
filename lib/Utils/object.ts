@@ -10,6 +10,8 @@ export const isString = (target: any): target is string => getType(target) === '
 
 export const isNumber = (target: any): target is number => Number.isFinite(target);
 
+export const isFunction = (target: any): target is Function => getType(target) === 'function';
+
 export const isEmpty = (target: any): boolean => {
   if (isObject(target)) return !Object.keys(target).length;
   if (isString(target)) return !target.trim().length;
