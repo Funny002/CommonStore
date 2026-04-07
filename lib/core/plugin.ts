@@ -8,10 +8,10 @@ import type { Store } from './store';
 export interface Plugin<TSotre extends Store = Store> {
   /** 插件名称，必须唯一 */
   readonly name: string;
-  
+
   /** 插件版本号（可选） */
   version?: string;
-  
+
   /** 依赖的插件名称列表（可选） */
   dependencies?: string[];
 
@@ -199,9 +199,7 @@ export class PluginManager<TStore extends Store = Store> {
     for (const depName of deps) {
       if (!this.plugins.has(depName)) {
         // 理论上拓扑排序已保证依赖存在，此处仅作防御
-        throw new Error(
-          `Plugin "${plugin.name}" depends on "${depName}", which is not installed.`,
-        );
+        throw new Error(`Plugin "${plugin.name}" depends on "${depName}", which is not installed.`);
       }
     }
     plugin.install?.(this.store);

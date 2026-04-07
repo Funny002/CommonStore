@@ -78,4 +78,6 @@ export class Store extends EventListener {
     this._plugins.use(...plugins);
     return this;
   }
+
+
 }
