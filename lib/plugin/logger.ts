@@ -29,7 +29,7 @@ const defaultOptions: Required<LoggerOptions> = {
  * @param options - 插件配置选项
  * @returns 插件实例
  */
-export const loggerPlugin = (options: LoggerOptions = {}): Plugin<Store> => {
+export const Logger = (options: LoggerOptions = {}): Plugin<Store> => {
   const opts = {...defaultOptions, ...options};
   const startTimeStack: number[] = [];
 

@@ -48,7 +48,7 @@ declare module '../core' {
  * @param options - 插件配置选项
  * @returns 插件实例
  */
-export const historyPlugin = (options: HistoryOptions = {}): Plugin<Store> => {
+export const History = (options: HistoryOptions = {}): Plugin<Store> => {
   const {maxHistorySize = 50} = options;
 
   let historyStack: unknown[] = [];
