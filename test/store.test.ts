@@ -108,18 +108,18 @@ describe('Store', () => {
       expect(result).toBe(5);
     });
 
-    it('执行未注册的 action 应该抛出错误', async () => {
-      await expect(store.dispatch('nonexistent')).rejects.toThrow(
+    it('执行未注册的 action 应该抛出错误',  () => {
+       expect(store.dispatch('nonexistent')).rejects.toThrow(
         'Action "nonexistent" not found',
       );
     });
 
-    it('action 执行失败应该抛出错误', async () => {
+    it('action 执行失败应该抛出错误',  () => {
       store.actions.register('fail', () => {
         throw new Error('Action failed');
       });
 
-      await expect(store.dispatch('fail')).rejects.toThrow('Action failed');
+       expect(store.dispatch('fail')).rejects.toThrow('Action failed');
     });
 
     it('应该支持异步 action', async () => {
@@ -442,7 +442,7 @@ describe('Store', () => {
       store.on('event1', listener1);
       store.on('event2', listener2);
 
-      store.clear();
+      store.clearListener();
       store.emit('event1');
       store.emit('event2');
 

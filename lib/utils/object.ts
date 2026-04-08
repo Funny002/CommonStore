@@ -41,7 +41,9 @@ export const isNumber = (target: any): target is number => Number.isFinite(targe
  * @param target - 待检测的值
  * @returns 是否为函数
  */
-export const isFunction = (target: any): target is Function => getType(target) === 'function';
+export const isFunction = (target: any): target is Function => {
+  return ['Function', 'AsyncFunction'].includes(getType(target, false));
+};
 
 /**
  * 判断值是否为空

@@ -113,9 +113,7 @@ export class PluginManager<TStore extends Store = Store> {
 
     for (const p of this.plugins.values()) {
       if (p.dependencies?.includes(pluginName)) {
-        throw new Error(
-          `Cannot eject "${pluginName}" because plugin "${p.name}" depends on it.`,
-        );
+        throw new Error(`Cannot eject "${pluginName}" because plugin "${p.name}" depends on it.`);
       }
     }
 
@@ -125,6 +123,18 @@ export class PluginManager<TStore extends Store = Store> {
       this.plugins.delete(pluginName);
     }
     return true;
+  }
+
+  /**
+   * 卸载一个或多个插件
+   * 会检查是否有其他插件依赖它
+   * @param plugins - 要卸载的插件数组
+   * @throws 如果有其他插件依赖该插件
+   */
+  uninstall(...plugins: Array<Plugin<TStore>>): void {
+    for (const plugin of plugins) {
+      this.eject(plugin.name);
+    }
   }
 
   /**

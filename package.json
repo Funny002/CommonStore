@@ -7,7 +7,7 @@
     "build": "tsc && vite build",
     "preview": "vite preview",
     "test": "vitest",
-    "test:ui": "vitest --ui",
+    "test:ui": "vitest --ui --api 8923",
     "coverage": "vitest run --coverage",
     "test:run": "vitest run"
   },

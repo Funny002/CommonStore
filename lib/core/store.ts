@@ -79,5 +79,27 @@ export class Store extends EventListener {
     return this;
   }
 
+  /**
+   * 移除插件
+   * @param plugins - 要移除的插件数组
+   * @returns 当前实例，支持链式调用
+   */
+  eject(...plugins: Parameters<PluginManager['use']>[0][]): this {
+    this._plugins.uninstall(...plugins);
+    return this;
+  }
 
+  /**
+   * 清空状态数据
+   */
+  clear() {
+    this._data.clear();
+  }
+
+  /**
+   * 清空事件监听器
+   */
+  clearListener() {
+    super.clear();
+  }
 }
