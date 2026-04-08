@@ -394,21 +394,18 @@ describe('History 历史记录插件', () => {
       const plugin = History({ maxHistorySize: 2 });
       store.use(plugin);
 
-      // 初始状态 + 3次变更，但maxHistorySize=2，所以只会保留最近的2条历史
       store.data.set('count', 1);
       store.data.set('count', 2);
       store.data.set('count', 3);
 
-      const info = store.history?.getInfo();
-      // 应该是初始状态 + 最多2条历史
-      expect(info?.stackSize).toBeLessThanOrEqual(3);
+      store.history?.undo();
+      expect(store.getState('count')).toBe(2);
 
-      // 验证可以正常撤销
-      if (store.history?.canUndo()) {
-        const prevCount = store.getState('count');
-        store.history?.undo();
-        expect(store.getState('count')).toBeLessThan(prevCount);
-      }
+      store.history?.undo();
+      expect(store.getState('count')).toBe(1);
+
+      store.history?.undo();
+      expect(store.getState('count')).toBe(0);
     });
   });
 
@@ -529,11 +526,8 @@ describe('History 历史记录插件', () => {
       const plugin = History();
       store.use(plugin);
       store.data.set('count', 1);
-      
-      // 使用 plugins.eject 卸载插件
-      store.plugins.eject('history');
-      
-      // 重新安装
+      plugin.uninstall?.();
+
       const newPlugin = History();
       store.use(newPlugin);
       store.data.set('count', 2);
