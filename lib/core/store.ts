@@ -1,6 +1,6 @@
 import type { DataChangeCallback } from './data';
 import { EventListener } from '../utils';
-import { PluginManager } from './plugin';
+import { PluginManager, type Plugin } from './plugin';
 import { ActionManager } from './action';
 import { DataManager } from './data';
 
@@ -84,7 +84,7 @@ export class Store extends EventListener {
    * @param plugins - 要移除的插件数组
    * @returns 当前实例，支持链式调用
    */
-  eject(...plugins: Parameters<PluginManager['use']>[0][]): this {
+  eject(...plugins: Plugin[]): this {
     this._plugins.uninstall(...plugins);
     return this;
   }

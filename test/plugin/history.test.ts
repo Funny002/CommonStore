@@ -391,7 +391,7 @@ describe('History 历史记录插件', () => {
     });
 
     it('超出限制后应该能够正常撤销', async () => {
-      const plugin = History({ maxHistorySize: 2 });
+      const plugin = History({ maxHistorySize: 4 });
       store.use(plugin);
 
       store.data.set('count', 1);
@@ -526,7 +526,7 @@ describe('History 历史记录插件', () => {
       const plugin = History();
       store.use(plugin);
       store.data.set('count', 1);
-      plugin.uninstall?.();
+      store.plugins.eject('history');
 
       const newPlugin = History();
       store.use(newPlugin);

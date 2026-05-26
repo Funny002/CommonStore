@@ -5,7 +5,7 @@ import type { Store } from './store';
  * 插件可以拦截 action 执行、监听数据变更等
  * @template TStore - Store 类型，默认为 Store
  */
-export interface Plugin<TSotre extends Store = Store> {
+export interface Plugin<TStore extends Store = Store> {
   /** 插件名称，必须唯一 */
   readonly name: string;
 
@@ -19,7 +19,7 @@ export interface Plugin<TSotre extends Store = Store> {
    * 安装插件时调用
    * @param store - Store 实例
    */
-  install?(store: TSotre): void;
+  install?(store: TStore): void;
 
   /**
    * 卸载插件时调用
