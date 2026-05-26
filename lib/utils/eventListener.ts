@@ -35,7 +35,8 @@ export class EventListener {
    * @param listener - 监听函数
    */
   on(eventName: string, listener: EventFunction) {
-    this._listener.set(eventName, [...(this._listener.get(eventName) || []), listener]);
+    const list = this._listener.get(eventName) || [];
+    this._listener.set(eventName, list.concat(listener));
   }
 
   /**

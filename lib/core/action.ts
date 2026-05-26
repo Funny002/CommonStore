@@ -85,8 +85,7 @@ export class ActionManager {
       throw new Error(`Action "${name}" not found. Available actions: ${available || '(none)'}`);
     }
     // 触发 beforeAction 钩子，允许插件修改参数
-    const rawBeforeResult = this.store.plugins.triggerBeforeAction(name, args);
-    const processedArgs = Array.isArray(rawBeforeResult) ? rawBeforeResult : args;
+    const processedArgs = this.store.plugins.triggerBeforeAction(name, args);
     try {
       // 执行 action 处理器
       const result = await handler(this.store, ...processedArgs);

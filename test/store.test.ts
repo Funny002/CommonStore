@@ -204,6 +204,34 @@ describe('Store', () => {
       expect(store.data.pop('notArray')).toBeUndefined();
     });
 
+    it('unshift / shift 方法应该能操作数组头部', () => {
+      store.data.set('list', [2, 3]);
+      store.data.unshift('list', 1);
+      expect(store.getState('list')).toEqual([1, 2, 3]);
+
+      const shifted = store.data.shift('list');
+      expect(shifted).toBe(1);
+      expect(store.getState('list')).toEqual([2, 3]);
+
+      // 对非数组使用 shift 返回 undefined
+      store.data.set('notArray', 'string');
+      expect(store.data.shift('notArray')).toBeUndefined();
+    });
+
+    it('insert / remove 方法应该能操作数组指定索引', () => {
+      store.data.set('list', [1, 3]);
+      store.data.insert('list', 1, 2);
+      expect(store.getState('list')).toEqual([1, 2, 3]);
+
+      const removed = store.data.remove('list', 1);
+      expect(removed).toBe(2);
+      expect(store.getState('list')).toEqual([1, 3]);
+
+      // 无效索引
+      expect(store.data.remove('list', 10)).toBeUndefined();
+      expect(store.data.remove('list', -1)).toBeUndefined();
+    });
+
     it('find 和 findAll 方法应该能查找符合条件的节点', () => {
       const state = {
         users: [
@@ -215,13 +243,11 @@ describe('Store', () => {
       const testStore = new Store(state);
 
       // 查找第一个 admin
-      // @ts-ignore
-      const firstAdmin = testStore.data.find((value, _key, _path) => value?.role === 'admin', true) as any;
+      const firstAdmin = testStore.data.find((value, _key, _path) => (value as any)?.role === 'admin', true) as any;
       expect(firstAdmin?.name).toBe('Alice');
 
       // 查找所有 admin
-      // @ts-ignore
-      const allAdmins = testStore.data.findAll((value, _key, _path) => value?.role === 'admin', true) as any[];
+      const allAdmins = testStore.data.findAll((value, _key, _path) => (value as any)?.role === 'admin', true) as any[];
       expect(allAdmins.length).toBe(2);
       expect(allAdmins[0].name).toBe('Alice');
       expect(allAdmins[1].name).toBe('Charlie');
@@ -232,6 +258,65 @@ describe('Store', () => {
       store.data.set('b', 2);
       store.data.clear();
       expect(store.getState()).toEqual({});
+    });
+
+    it('has 方法应该检查路径是否存在', () => {
+      store.data.set('user.name', 'Alice');
+      expect(store.data.has('user')).toBe(true);
+      expect(store.data.has('user.name')).toBe(true);
+      expect(store.data.has('nonexistent')).toBe(false);
+      expect(store.data.has('')).toBe(true);
+    });
+
+    it('reset 方法应该重置到初始状态', () => {
+      const testStore = new Store({ count: 0, user: 'Alice' });
+      testStore.data.set('count', 100);
+      testStore.data.set('user', 'Bob');
+
+      testStore.data.reset();
+      expect(testStore.getState('count')).toBe(0);
+      expect(testStore.getState('user')).toBe('Alice');
+    });
+
+    it('reset 方法应该支持保留特定路径', () => {
+      const testStore = new Store({ count: 0, user: 'Alice', token: 'abc' });
+      testStore.data.set('count', 100);
+      testStore.data.set('user', 'Bob');
+      testStore.data.set('token', 'xyz');
+
+      testStore.data.reset(['token']);
+      expect(testStore.getState('count')).toBe(0);
+      expect(testStore.getState('user')).toBe('Alice');
+      expect(testStore.getState('token')).toBe('xyz');
+    });
+
+    it('batch 方法应该合并多次变更为一次通知', () => {
+      const onDataChange = vi.fn();
+      const plugin: Plugin = { name: 'watcher', onDataChange };
+      store.use(plugin);
+
+      store.data.batch(() => {
+        store.data.set('a', 1);
+        store.data.set('b', 2);
+        store.data.set('c', 3);
+      });
+
+      expect(store.getState('a')).toBe(1);
+      expect(store.getState('b')).toBe(2);
+      expect(store.getState('c')).toBe(3);
+      // 批量操作应该只触发一次根路径通知
+      expect(onDataChange).toHaveBeenCalledTimes(1);
+      expect(onDataChange).toHaveBeenCalledWith([], store.getState(), {});
+    });
+
+    it('batch 方法中无实际变更不应该触发通知', () => {
+      const onDataChange = vi.fn();
+      const plugin: Plugin = { name: 'watcher', onDataChange };
+      store.use(plugin);
+
+      store.data.batch(() => {});
+
+      expect(onDataChange).not.toHaveBeenCalled();
     });
   });
 
@@ -270,8 +355,7 @@ describe('Store', () => {
         name: 'modifier-plugin',
         beforeAction: (actionName, args) => {
           if (actionName === 'multiply') {
-            // @ts-ignore
-            return [args[0] * 2];
+            return [(args[0] as number) * 2];
           }
         },
       };
@@ -451,6 +535,74 @@ describe('Store', () => {
     });
   });
 
+  describe('subscribe - 订阅状态变化', () => {
+    it('应该订阅特定路径的变化', () => {
+      const callback = vi.fn();
+      store.subscribe('count', callback);
+
+      store.data.set('count', 10);
+      expect(callback).toHaveBeenCalledWith(10, undefined);
+
+      store.data.set('count', 20);
+      expect(callback).toHaveBeenCalledWith(20, 10);
+    });
+
+    it('订阅子路径变化时父路径应该收到通知', () => {
+      const callback = vi.fn();
+      store.subscribe('user', callback);
+
+      store.data.set('user.name', 'Alice');
+      expect(callback).toHaveBeenCalled();
+      expect(callback.mock.calls[0][0]).toEqual({ name: 'Alice', age: undefined });
+    });
+
+    it('取消订阅后不应该再收到通知', () => {
+      const callback = vi.fn();
+      const unsubscribe = store.subscribe('count', callback);
+
+      store.data.set('count', 1);
+      expect(callback).toHaveBeenCalledTimes(1);
+
+      unsubscribe();
+      store.data.set('count', 2);
+      expect(callback).toHaveBeenCalledTimes(1);
+    });
+
+    it('多个订阅应该各自独立工作', () => {
+      const callback1 = vi.fn();
+      const callback2 = vi.fn();
+      store.subscribe('a', callback1);
+      store.subscribe('b', callback2);
+
+      store.data.set('a', 1);
+      expect(callback1).toHaveBeenCalledWith(1, undefined);
+      expect(callback2).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('Store.reset - 重置状态', () => {
+    it('应该重置到初始状态', () => {
+      const testStore = new Store({ x: 1, y: 2 });
+      testStore.data.set('x', 100);
+      testStore.data.set('y', 200);
+
+      testStore.reset();
+      expect(testStore.getState('x')).toBe(1);
+      expect(testStore.getState('y')).toBe(2);
+    });
+
+    it('应该支持保留特定路径', () => {
+      const testStore = new Store({ x: 1, y: 2, z: 3 });
+      testStore.data.set('x', 100);
+      testStore.data.set('y', 200);
+
+      testStore.reset(['y']);
+      expect(testStore.getState('x')).toBe(1);
+      expect(testStore.getState('y')).toBe(200);
+      expect(testStore.getState('z')).toBe(3);
+    });
+  });
+
   describe('集成测试', () => {
     it('应该能够完整地使用 Store：注册 action、插件、数据变更', async () => {
       const initialState = {counter: 0, history: [] as string[]};
@@ -552,10 +704,8 @@ describe('Store', () => {
     });
 
     it('多个插件同时修改 beforeAction 参数应该按注册顺序依次生效', async () => {
-      // @ts-ignore
-      const plugin1: Plugin = {name: 'double', beforeAction: (_name, args) => [args[0] * 2]};
-      // @ts-ignore
-      const plugin2: Plugin = {name: 'addOne', beforeAction: (_name, args) => [args[0] + 1]};
+      const plugin1: Plugin = {name: 'double', beforeAction: (_name, args) => [(args[0] as number) * 2]};
+      const plugin2: Plugin = {name: 'addOne', beforeAction: (_name, args) => [(args[0] as number) + 1]};
       store.use(plugin1, plugin2);
       store.actions.register('compute', (_store, x: number) => x);
 

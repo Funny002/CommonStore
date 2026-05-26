@@ -116,11 +116,11 @@ export const History = (options: HistoryOptions = {}): Plugin<Store> => {
     canUndo: () => currentIndex > 0,
     canRedo: () => currentIndex < historyStack.length - 1,
     undo: () => {
-      if (!createHistoryAPI(store).canUndo()) return false;
+      if (currentIndex <= 0) return false;
       return applyState(currentIndex - 1);
     },
     redo: () => {
-      if (!createHistoryAPI(store).canRedo()) return false;
+      if (currentIndex >= historyStack.length - 1) return false;
       return applyState(currentIndex + 1);
     },
     clear: () => {

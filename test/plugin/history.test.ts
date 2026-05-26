@@ -174,9 +174,7 @@ describe('History 历史记录插件', () => {
       store.use(plugin);
 
       store.data.set('count', 5);
-      await new Promise(resolve => setTimeout(resolve, 10)); // 等待快照记录
       store.data.set('name', 'changed');
-      await new Promise(resolve => setTimeout(resolve, 10)); // 等待快照记录
 
       store.history?.undo();
 
