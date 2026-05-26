@@ -1,18 +1,276 @@
 <!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>vite-project</title>
-  </head>
-  <body>
-    <div id="app">
-      <div class="btn btn-item" data-name="add">添加</div>
-      <div class="btn btn-item" data-name="remove">删除</div>
-      <div class="btn btn-item" data-name="addChild">添加子级</div>
-      <div class="btn btn-item" data-name="removeChild">删除子级</div>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CommonStore — Demo</title>
+  <style>
+    :root {
+      --bg: #1a1a2e; --bg2: #16213e; --bg3: #0f3460;
+      --text: #e0e0e0; --text2: #a0a0b0;
+      --accent: #4fc08d; --accent2: #409eff; --danger: #f56c6c; --warn: #e6a23c;
+      --border: #2a2a4a; --radius: 6px;
+      --font-mono: 'Consolas','Monaco',monospace;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: var(--bg); color: var(--text); font-family: -apple-system,BlinkMacSystemFont,sans-serif; height: 100vh; overflow: hidden; display: flex; flex-direction: column; }
+    #header { display: flex; align-items: center; padding: 8px 16px; background: var(--bg2); border-bottom: 1px solid var(--border); gap: 12px; flex-shrink: 0; }
+    #header .title { font-size: 16px; font-weight: 700; color: var(--accent); margin-right: auto; }
+    #header .badge { padding: 2px 10px; border-radius: 10px; font-size: 11px; font-family: var(--font-mono); }
+    .badge-on { background: #4fc08d33; color: var(--accent); }
+    .badge-off { background: #f56c6c33; color: var(--danger); }
+    #main { display: grid; grid-template-columns: 200px 1fr 280px; flex: 1; overflow: hidden; }
+    #sidebar { background: var(--bg2); border-right: 1px solid var(--border); padding: 8px 0; overflow-y: auto; }
+    #sidebar .nav-item { padding: 9px 18px; cursor: pointer; font-size: 13px; border-left: 3px solid transparent; transition: .15s; color: var(--text2); }
+    #sidebar .nav-item:hover { color: var(--text); background: #ffffff08; }
+    #sidebar .nav-item.active { color: var(--accent); border-left-color: var(--accent); background: #4fc08d11; }
+    #sidebar .nav-header { padding: 14px 18px 4px; font-size: 10px; text-transform: uppercase; color: var(--text2); letter-spacing: 1px; }
+    #content { padding: 16px; overflow-y: auto; }
+    #content .section { display: none; }
+    #content .section.active { display: block; }
+    .card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; margin-bottom: 12px; }
+    .card h3 { font-size: 13px; margin-bottom: 10px; color: var(--accent); }
+    input, select, textarea { background: var(--bg3); border: 1px solid var(--border); color: var(--text); padding: 5px 8px; border-radius: 4px; font-size: 12px; font-family: var(--font-mono); outline: none; }
+    input:focus, select:focus, textarea:focus { border-color: var(--accent); }
+    button { background: var(--accent); color: #fff; border: none; padding: 5px 12px; border-radius: 4px; cursor: pointer; font-size: 12px; transition: .15s; white-space: nowrap; }
+    button:hover { opacity: .85; }
+    button:disabled { opacity: .4; cursor: not-allowed; }
+    button.sm { padding: 2px 7px; font-size: 10px; }
+    button.danger { background: var(--danger); }
+    button.warn { background: var(--warn); color: #1a1a2e; }
+    button.info { background: var(--accent2); }
+    .row { display: flex; gap: 6px; align-items: center; margin-bottom: 6px; flex-wrap: wrap; }
+    #panel { background: var(--bg2); border-left: 1px solid var(--border); display: flex; flex-direction: column; overflow: hidden; }
+    #panel .pane { flex: 1; overflow-y: auto; padding: 10px 12px; border-bottom: 1px solid var(--border); }
+    #panel .pane:last-child { border-bottom: none; }
+    #panel .pane-title { font-size: 10px; color: var(--text2); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 1px; display: flex; align-items: center; justify-content: space-between; }
+    #state-view { font-family: var(--font-mono); font-size: 11px; white-space: pre-wrap; word-break: break-all; color: var(--accent); line-height: 1.5; }
+    #log-list { font-family: var(--font-mono); font-size: 11px; line-height: 1.4; }
+    #log-list .log-item { padding: 1px 0; border-bottom: 1px solid #ffffff04; }
+    .log-time { color: var(--text2); margin-right: 6px; }
+    .log-data { color: var(--accent2); }
+    .log-error { color: var(--danger); }
+    #sub-list { font-family: var(--font-mono); font-size: 11px; line-height: 1.5; }
+    #sub-list .sub-item { padding: 2px 0; border-bottom: 1px solid #ffffff04; }
+    #footer { display: flex; align-items: center; padding: 5px 14px; background: var(--bg2); border-top: 1px solid var(--border); gap: 8px; flex-shrink: 0; font-size: 12px; }
+    #footer select { min-width: 110px; }
+    .tree { font-family: var(--font-mono); font-size: 12px; }
+    .tree-node { margin-left: 18px; }
+    .tree-node .node-row { display: flex; gap: 5px; align-items: center; padding: 2px 0; }
+    .todo-item { display: flex; gap: 6px; align-items: center; padding: 4px 0; border-bottom: 1px solid var(--border); }
+    .todo-item .done-text { text-decoration: line-through; color: var(--text2); }
+    .todo-item label { cursor: pointer; }
+    .history-bar { display: flex; align-items: center; gap: 8px; font-size: 11px; font-family: var(--font-mono); }
+    .history-bar .progress { flex: 1; height: 4px; background: var(--bg3); border-radius: 2px; overflow: hidden; }
+    .history-bar .progress .fill { height: 100%; background: var(--accent); transition: width .2s; }
+    #current-subs { font-family: var(--font-mono); font-size: 11px; margin-top: 6px; }
+    #current-subs .sub-row { display: flex; align-items: center; gap: 6px; padding: 2px 0; }
+    #act-result { font-family: var(--font-mono); font-size: 11px; margin-top: 6px; padding: 6px 8px; background: var(--bg3); border-radius: 4px; max-height: 120px; overflow-y: auto; }
+    .highlight { background: #4fc08d22; border-radius: 2px; padding: 0 2px; }
+    ::-webkit-scrollbar { width: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  </style>
+</head>
+<body>
+  <div id="header">
+    <span class="title">CommonStore Demo</span>
+    <span id="badge-logger" class="badge badge-on">Logger</span>
+    <span id="badge-history" class="badge badge-on">History</span>
+    <span id="badge-persist" class="badge badge-on">Persist</span>
+    <span id="badge-redux" class="badge badge-off">Redux</span>
+    <span id="badge-vue" class="badge badge-off">Vue</span>
+  </div>
+
+  <div id="main">
+    <div id="sidebar">
+      <div class="nav-header">数据操作</div>
+      <div class="nav-item active" data-section="data-ops">基本读写</div>
+      <div class="nav-item" data-section="array-ops">数组操作</div>
+      <div class="nav-item" data-section="tree-ops">树结构</div>
+      <div class="nav-header">核心系统</div>
+      <div class="nav-item" data-section="action-sys">Action 系统</div>
+      <div class="nav-item" data-section="subscribe-sys">订阅系统</div>
+      <div class="nav-header">高级功能</div>
+      <div class="nav-item" data-section="batch-reset">批量 &amp; 重置</div>
+      <div class="nav-item" data-section="plugin-panel">插件管理</div>
     </div>
-    <script type="module" src="/src/main.ts"></script>
-  </body>
+
+    <div id="content">
+      <div class="section active" id="sec-data-ops">
+        <div class="card">
+          <h3>set — 写入数据</h3>
+          <div class="row"><input id="set-path" placeholder="路径" value="user.name"><input id="set-value" placeholder="值" value="Bob"><button id="btn-set">设置</button></div>
+        </div>
+        <div class="card">
+          <h3>get — 读取数据</h3>
+          <div class="row"><input id="get-path" placeholder="路径" value="user"><button id="btn-get">查询</button><span id="get-result" style="color:var(--accent)"></span></div>
+        </div>
+        <div class="card">
+          <h3>has — 路径是否存在</h3>
+          <div class="row"><input id="has-path" placeholder="路径" value="user.email"><button id="btn-has">检查</button><span id="has-result"></span></div>
+        </div>
+        <div class="card">
+          <h3>delete — 删除数据</h3>
+          <div class="row"><input id="delete-path" placeholder="路径" value="temp.field"><button class="danger" id="btn-delete">删除</button><span id="delete-result"></span></div>
+        </div>
+        <div class="card">
+          <h3>update — 更新数据</h3>
+          <div class="row"><input id="update-path" placeholder="路径" value="count">
+            <select id="update-op"><option value="v=>v+1">v => v + 1</option><option value="v=>v*2">v => v * 2</option><option value="v=>0">v => 0</option></select>
+            <button id="btn-update">更新</button></div>
+        </div>
+        <div class="card">
+          <h3>merge — 合并对象</h3>
+          <div class="row"><input id="merge-path" placeholder="路径" value="user.settings">
+            <input id="merge-json" value='{"theme":"dark"}' style="flex:1">
+            <button id="btn-merge">合并</button></div>
+        </div>
+        <div class="card">
+          <h3>find &amp; findAll — 搜索</h3>
+          <div class="row"><input id="find-key" placeholder="搜索 key" value="name"><input id="find-val" placeholder="搜索 value" value="Alice"><button id="btn-find">find</button><button id="btn-findAll">findAll</button></div>
+          <div id="find-result" style="font-family:var(--font-mono);font-size:11px;max-height:120px;overflow-y:auto;margin-top:6px"></div>
+        </div>
+      </div>
+
+      <div class="section" id="sec-array-ops">
+        <div class="card">
+          <h3>Todo 列表 (items 数组)</h3>
+          <div id="todo-list"></div>
+          <div class="row" style="margin-top:10px">
+            <input id="todo-input" placeholder="新项内容" style="flex:1"><button id="btn-push">push 添加</button>
+          </div>
+        </div>
+        <div class="row" style="gap:5px;margin-bottom:10px">
+          <button id="btn-unshift" class="info">unshift 头部添加</button>
+          <button id="btn-pop" class="warn">pop 移除末尾</button>
+          <button id="btn-shift" class="warn">shift 移除头部</button>
+        </div>
+        <div class="row" style="gap:5px">
+          <input id="insert-idx" value="1" style="width:50px;text-align:center"><input id="insert-val" value="新项" style="flex:1">
+          <button id="btn-insert">insert 在此索引插入</button>
+          <input id="remove-idx" value="0" style="width:50px;text-align:center">
+          <button id="btn-remove" class="danger">remove 移除索引</button>
+        </div>
+      </div>
+
+      <div class="section" id="sec-tree-ops">
+        <div class="card">
+          <h3>树形数据 (tree 数组)</h3>
+          <div id="tree-view"></div>
+        </div>
+        <div class="row" style="gap:5px;margin-top:8px">
+          <input id="tree-name" value="新节点" style="flex:1" placeholder="节点名称">
+          <button id="btn-tree-push">push 添加根节点</button>
+          <button id="btn-tree-pop" class="warn">pop 移除最后节点</button>
+        </div>
+      </div>
+
+      <div class="section" id="sec-action-sys">
+        <div class="card">
+          <h3>注册 Action</h3>
+          <div class="row"><input id="act-name" placeholder="action 名称" value="myAction"><button id="btn-register">注册</button><span id="act-register-result"></span></div>
+          <div style="font-size:11px;color:var(--text2);margin-top:4px">Handler: (store, ...args) => { store.data.set('count', args[0] || 0); return 'ok' }</div>
+        </div>
+        <div class="card">
+          <h3>已注册 Action 列表</h3>
+          <div id="act-list" style="font-family:var(--font-mono);font-size:11px;max-height:100px;overflow-y:auto"></div>
+        </div>
+        <div class="card">
+          <h3>分发 Action</h3>
+          <div class="row"><select id="act-select"></select><input id="act-args" value='' placeholder='参数 (逗号分隔)'><button id="btn-dispatch">执行</button></div>
+          <div id="act-result"></div>
+        </div>
+      </div>
+
+      <div class="section" id="sec-subscribe-sys">
+        <div class="card">
+          <h3>添加订阅</h3>
+          <div class="row"><input id="sub-path" placeholder="路径" value="user"><button id="btn-subscribe">订阅</button></div>
+          <div id="current-subs"></div>
+        </div>
+      </div>
+
+      <div class="section" id="sec-batch-reset">
+        <div class="card">
+          <h3>batch — 批量操作</h3>
+          <p style="font-size:12px;color:var(--text2);margin-bottom:8px">同时修改 3 个值，只触发一次通知</p>
+          <button id="btn-batch">执行批量操作 (count+1, user.age=26, meta.version=0.0.2)</button>
+        </div>
+        <div class="card">
+          <h3>reset — 重置状态</h3>
+          <div class="row" style="gap:5px">
+            <button id="btn-reset" class="warn">完全重置</button>
+            <button id="btn-reset-keep" class="info">重置但保留 user</button>
+          </div>
+        </div>
+        <div class="card">
+          <h3>clear — 清空状态</h3>
+          <button class="danger" id="btn-clear">清空所有数据</button>
+        </div>
+      </div>
+
+      <div class="section" id="sec-plugin-panel">
+        <div class="card">
+          <h3>Logger 插件</h3>
+          <div class="row"><button id="btn-logger-toggle">切换 Logger</button><span id="logger-status" style="font-size:12px">状态: 已启用</span></div>
+        </div>
+        <div class="card">
+          <h3>History 插件</h3>
+          <div class="history-bar"><span id="history-info">当前: 1 / 50</span><div class="progress"><div class="fill" id="history-fill" style="width:2%"></div></div></div>
+          <div class="row" style="margin-top:8px;gap:5px">
+            <button id="btn-undo" class="info">撤销</button>
+            <button id="btn-redo" class="info">重做</button>
+            <button id="btn-history-clear" class="warn">清除历史</button>
+          </div>
+        </div>
+        <div class="card">
+          <h3>Persist 插件</h3>
+          <div class="row" style="gap:5px">
+            <button id="btn-persist-save">保存到 localStorage</button>
+            <button id="btn-persist-restore" class="info">恢复状态</button>
+            <button id="btn-persist-clear" class="danger">清除存储</button>
+          </div>
+          <span id="persist-status" style="font-size:11px;color:var(--text2);margin-top:4px;display:block"></span>
+        </div>
+      </div>
+    </div>
+
+    <div id="panel">
+      <div class="pane" style="flex:2">
+        <div class="pane-title">当前状态</div>
+        <div id="state-view">{}</div>
+      </div>
+      <div class="pane" style="flex:1.2">
+        <div class="pane-title">操作日志 <button class="sm" id="btn-clear-log">清空</button></div>
+        <div id="log-list"></div>
+      </div>
+      <div class="pane" style="flex:1">
+        <div class="pane-title">订阅通知</div>
+        <div id="sub-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="footer">
+    <span>快捷 Action:</span>
+    <select id="quick-action">
+      <option value="fetchData">fetchData (异步模拟)</option>
+      <option value="compute">compute (计算)</option>
+      <option value="resetCounter">resetCounter</option>
+      <option value="addTodo">addTodo</option>
+      <option value="toggleTodo">toggleTodo</option>
+      <option value="addTreeNode">addTreeNode</option>
+    </select>
+    <input id="quick-args" placeholder='参数 (逗号分隔)' value='' style="width:140px">
+    <button id="btn-quick-dispatch">执行</button>
+    <span style="flex:1"></span>
+    <button id="btn-undo-bottom" class="info sm">撤销</button>
+    <button id="btn-redo-bottom" class="info sm">重做</button>
+    <span id="history-info-bottom" style="font-size:11px;font-family:var(--font-mono)">1/50</span>
+    <button id="btn-export" class="sm">导出 JSON</button>
+  </div>
+
+  <script type="module" src="/src/main.ts"></script>
+</body>
 </html>

@@ -145,6 +145,30 @@ class JQLiteImpl {
   get(index: number): HTMLElement | undefined {
     return this[elementsSymbol][index];
   }
+
+  val(content?: string): any {
+    if (content === undefined) {
+      const el = this[elementsSymbol][0];
+      if (!el) return '';
+      return (el as HTMLInputElement).value ?? el.getAttribute('value') ?? '';
+    }
+    this.each((_, el) => {
+      (el as HTMLInputElement).value = content;
+    });
+    return this;
+  }
+
+  prop(name: string, value?: boolean): any {
+    if (value === undefined) {
+      const el = this[elementsSymbol][0];
+      if (!el) return undefined;
+      return (el as any)[name];
+    }
+    this.each((_, el) => {
+      (el as any)[name] = value;
+    });
+    return this;
+  }
 }
 
 export function $(selector: string | HTMLElement | HTMLElement[]) {

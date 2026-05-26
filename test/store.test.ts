@@ -578,6 +578,20 @@ describe('Store', () => {
       expect(callback1).toHaveBeenCalledWith(1, undefined);
       expect(callback2).not.toHaveBeenCalled();
     });
+
+    it('订阅根路径（空字符串）应该抛出错误', () => {
+      const callback = vi.fn();
+      expect(() => store.subscribe('', callback)).toThrow(
+        'Cannot subscribe to the root path. Please specify a specific path.',
+      );
+    });
+
+    it('订阅根路径（空数组）应该抛出错误', () => {
+      const callback = vi.fn();
+      expect(() => store.subscribe([], callback)).toThrow(
+        'Cannot subscribe to the root path. Please specify a specific path.',
+      );
+    });
   });
 
   describe('Store.reset - 重置状态', () => {

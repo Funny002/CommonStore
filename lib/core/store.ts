@@ -116,6 +116,9 @@ export class Store extends EventListener {
    */
   subscribe(path: string | DataPath, callback: (value: unknown, oldValue: unknown) => void): () => void {
     const keyStr = Array.isArray(path) ? path.join('.') : path;
+    if (!keyStr) {
+      throw new Error('Cannot subscribe to the root path. Please specify a specific path.');
+    }
     let oldValue = this.getState(path);
     const handler = () => {
       const newValue = this.getState(path);

@@ -1,7 +1,7 @@
 # Common Store
 
 <p>
-  <a href="https://www.npmjs.com/package/common-store"><img src="https://img.shields.io/badge/npm-v0.0.1-blue" alt="npm version"></a>
+  <a href="https://www.npmjs.com/package/common-store"><img src="https://img.shields.io/badge/npm-v1.0.0-blue" alt="npm version"></a>
   <img src="https://img.shields.io/badge/license-MIT-green" alt="license">
   <img src="https://img.shields.io/badge/TypeScript-5.9-3178C6" alt="TypeScript">
 </p>
@@ -19,7 +19,8 @@
 | **模块设计** | Data / Action / Plugin 职责分离，可独立测试 |
 | **批量更新** | `batch()` 合并多次变更为一次通知 |
 | **路径订阅** | `subscribe(path, cb)` 精确监听任意路径变化 |
-| **内置插件** | History (undo/redo), Logger, Persist |
+| **DevTools 集成** | Redux DevTools Extension（时间旅行） + Vue DevTools（Inspector + Timeline）|
+| **内置插件** | Logger / History (undo/redo) / Persist / ReduxDevtools / VueDevtools |
 | **类型安全** | 完整 TypeScript 泛型，编译期捕获类型错误 |
 | **零外部依赖** | 仅依赖 `immutable` 一个运行时包 |
 
@@ -53,8 +54,14 @@ await store.dispatch('increment', 5); // count: 15
 store.subscribe('count', (val, old) => console.log(`count: ${old} -> ${val}`));
 
 // 使用插件
-store.use(Logger());   // 控制台日志
-store.use(History());  // undo/redo 支持
+store.use(Logger());               // 控制台日志
+store.use(History());              // undo/redo 支持
+
+// Redux DevTools Extension（浏览器扩展中查看 action 历史和时间旅行）
+store.use(ReduxDevtools({ name: 'MyApp' }));
+
+// Vue DevTools（Inspector 状态面板 + Timeline 时间线）
+store.use(VueDevtools({ inspectorLabel: 'My Store' }));
 ```
 
 ## 核心概念
@@ -87,6 +94,8 @@ store.actions.register('fetchUser', async (s, id: string) => {
 ```typescript
 store.use(Logger({ logActions: true }));
 store.use(Persist({ key: 'my-app', paths: ['user'] }));
+store.use(ReduxDevtools({ name: 'MyApp', maxAge: 50 }));
+store.use(VueDevtools({ inspectorLabel: 'My Store' }));
 ```
 
 ## 插件钩子
@@ -122,6 +131,8 @@ store.use(pluginA, pluginB); // A 的钩子先于 B 执行
 - [Logger 插件](docs/plugins/logger.md) — Action 和数据变更日志
 - [History 插件](docs/plugins/history.md) — Undo/Redo
 - [Persist 插件](docs/plugins/persist.md) — 状态持久化
+- [Redux DevTools 插件](docs/plugins/redux-devtools.md) — Redux DevTools Extension 集成，时间旅行与 action 回放
+- [Vue DevTools 插件](docs/plugins/vue-devtools.md) — Vue DevTools Inspector 和 Timeline 支持
 
 
 ---

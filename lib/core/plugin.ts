@@ -96,7 +96,9 @@ export class PluginManager<TStore extends Store = Store> {
 
     const sorted = this.topologicalSort(newPlugins, allPlugins);
     for (const plugin of sorted) {
-      this.installOne(plugin);
+      if (!this.plugins.has(plugin.name)) {
+        this.installOne(plugin);
+      }
     }
   }
 
