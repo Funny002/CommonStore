@@ -1,13 +1,13 @@
-const elementsSymbol = Symbol('elements');
+const elementsSymbol = Symbol("elements");
 
 class JQLiteImpl {
   private [elementsSymbol]: HTMLElement[];
 
   constructor(selector: string | HTMLElement | HTMLElement[]) {
-    if (typeof selector === 'string') {
-      if (selector.trim().startsWith('<')) {
+    if (typeof selector === "string") {
+      if (selector.trim().startsWith("<")) {
         // 解析 HTML 字符串创建元素
-        const template = document.createElement('template');
+        const template = document.createElement("template");
         template.innerHTML = selector.trim();
         const fragment = template.content;
         this[elementsSymbol] = Array.from(fragment.children) as HTMLElement[];
@@ -38,7 +38,7 @@ class JQLiteImpl {
   }
 
   css(prop: string | Record<string, string | number>, value?: string | number): any {
-    if (typeof prop === 'string') {
+    if (typeof prop === "string") {
       if (value === undefined) {
         // 获取第一个元素的样式值
         const el = this[elementsSymbol][0];
@@ -65,7 +65,7 @@ class JQLiteImpl {
   html(content?: string): any {
     if (content === undefined) {
       const el = this[elementsSymbol][0];
-      return el ? el.innerHTML : '';
+      return el ? el.innerHTML : "";
     }
     this.each((_, el) => {
       el.innerHTML = content;
@@ -75,7 +75,7 @@ class JQLiteImpl {
 
   text(content?: string): any {
     if (content === undefined) {
-      return this[elementsSymbol].map((el) => el.textContent).join('');
+      return this[elementsSymbol].map((el) => el.textContent).join("");
     }
     this.each((_, el) => {
       el.textContent = content;
@@ -84,7 +84,7 @@ class JQLiteImpl {
   }
 
   attr(name: string | Record<string, string | number>, value?: string | number): any {
-    if (typeof name === 'string') {
+    if (typeof name === "string") {
       if (value === undefined) {
         const el = this[elementsSymbol][0];
         return el ? el.getAttribute(name) : null;
@@ -149,8 +149,8 @@ class JQLiteImpl {
   val(content?: string): any {
     if (content === undefined) {
       const el = this[elementsSymbol][0];
-      if (!el) return '';
-      return (el as HTMLInputElement).value ?? el.getAttribute('value') ?? '';
+      if (!el) return "";
+      return (el as HTMLInputElement).value ?? el.getAttribute("value") ?? "";
     }
     this.each((_, el) => {
       (el as HTMLInputElement).value = content;

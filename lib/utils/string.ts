@@ -1,9 +1,14 @@
 /**
+ * 字符串工具模块
+ *
+ * 提供随机字符生成、随机字符串生成和格式化 ID 生成功能。
+ */
+/**
  * 从字母数字字符集中随机选择一个字符
  * @returns 随机字符 [A-Za-z0-9]
  */
 export function randomChars() {
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
   return chars[Math.floor(Math.random() * chars.length)];
 }
 
@@ -13,7 +18,7 @@ export function randomChars() {
  * @returns 随机字符串 [A-Za-z0-9]
  */
 export function randomString(long: number): string {
-  return Array.from({length: long}).map(randomChars).join('');
+  return Array.from({ length: long }).map(randomChars).join("");
 }
 
 /**
@@ -23,10 +28,13 @@ export function randomString(long: number): string {
  * @param prefix - 可选的前缀
  * @returns 生成的 ID
  */
-export function generateId(format = 'xxx-xxx', prefix?: string) {
-  return (prefix ? `${prefix}_` : '') + format.replace(/[yxn]/g, (match: string): string => {
-    if (match === 'y') return Math.floor(Math.random() * 10).toString();
-    if (match === 'x') return randomChars();
-    return '';
-  });
+export function generateId(format = "xxx-xxx", prefix?: string) {
+  return (
+    (prefix ? `${prefix}_` : "") +
+    format.replace(/[yxn]/g, (match: string): string => {
+      if (match === "y") return Math.floor(Math.random() * 10).toString();
+      if (match === "x") return randomChars();
+      return "";
+    })
+  );
 }

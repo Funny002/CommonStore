@@ -1,8 +1,15 @@
-import type { DataChangeCallback, DataPath } from './data';
-import { EventListener } from '../utils';
-import { PluginManager, type Plugin } from './plugin';
-import { ActionManager } from './action';
-import { DataManager } from './data';
+/**
+ * Store 核心状态管理模块
+ *
+ * 状态管理的核心类，继承自 EventListener。
+ * 整合了 DataManager、ActionManager 和 PluginManager 三大子系统，
+ * 提供统一的状态读写、action 分发、插件管理和路径订阅能力。
+ */
+import type { DataChangeCallback, DataPath } from "./data";
+import { EventListener } from "../utils";
+import { PluginManager, type Plugin } from "./plugin";
+import { ActionManager } from "./action";
+import { DataManager } from "./data";
 
 /**
  * Store 类
@@ -10,9 +17,13 @@ import { DataManager } from './data';
  * 整合了数据管理、动作执行和插件系统
  */
 export class Store extends EventListener {
+  /** 数据管理器 */
   private readonly _data: DataManager;
+  /** Action 动作管理器 */
   private readonly _actions: ActionManager;
+  /** 插件管理器 */
   private readonly _plugins: PluginManager;
+  /** 初始状态，用于 reset() 恢复 */
   private readonly _initialState: unknown;
 
   /**
@@ -77,7 +88,7 @@ export class Store extends EventListener {
    * @param plugins - 要注册的插件数组
    * @returns 当前实例，支持链式调用
    */
-  use(...plugins: Parameters<PluginManager['use']>[0][]): this {
+  use(...plugins: Parameters<PluginManager["use"]>[0][]): this {
     this._plugins.use(...plugins);
     return this;
   }
@@ -89,7 +100,7 @@ export class Store extends EventListener {
    */
   eject(...plugins: (string | Plugin)[]): this {
     for (const item of plugins) {
-      if (typeof item === 'string') {
+      if (typeof item === "string") {
         this._plugins.eject(item);
       } else {
         this._plugins.eject(item.name);
@@ -115,9 +126,9 @@ export class Store extends EventListener {
    * @returns 取消订阅函数
    */
   subscribe(path: string | DataPath, callback: (value: unknown, oldValue: unknown) => void): () => void {
-    const keyStr = Array.isArray(path) ? path.join('.') : path;
+    const keyStr = Array.isArray(path) ? path.join(".") : path;
     if (!keyStr) {
-      throw new Error('Cannot subscribe to the root path. Please specify a specific path.');
+      throw new Error("Cannot subscribe to the root path. Please specify a specific path.");
     }
     let oldValue = this.getState(path);
     const handler = () => {
@@ -136,10 +147,10 @@ export class Store extends EventListener {
    * 触发订阅通知
    */
   private _emitChange(path: string[]) {
-    const pathStr = path.join('.');
+    const pathStr = path.join(".");
     this.emit(`__sub:${pathStr}`);
     for (let i = path.length - 1; i >= 0; i--) {
-      const p = path.slice(0, i).join('.');
+      const p = path.slice(0, i).join(".");
       if (p) {
         this.emit(`__sub:${p}`);
       }

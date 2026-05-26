@@ -12,17 +12,17 @@
 
 ## 特性
 
-| 特性 | 说明 |
-|------|------|
-| **不可变数据** | 基于 Immutable.js `Map` / `List`，引用比对零成本 |
-| **插件架构** | 6 个生命周期钩子拦截 action 执行与数据变更 |
-| **模块设计** | Data / Action / Plugin 职责分离，可独立测试 |
-| **批量更新** | `batch()` 合并多次变更为一次通知 |
-| **路径订阅** | `subscribe(path, cb)` 精确监听任意路径变化 |
-| **DevTools 集成** | Redux DevTools Extension（时间旅行） + Vue DevTools（Inspector + Timeline）|
-| **内置插件** | Logger / History (undo/redo) / Persist / ReduxDevtools / VueDevtools |
-| **类型安全** | 完整 TypeScript 泛型，编译期捕获类型错误 |
-| **零外部依赖** | 仅依赖 `immutable` 一个运行时包 |
+| 特性              | 说明                                                                        |
+| ----------------- | --------------------------------------------------------------------------- |
+| **不可变数据**    | 基于 Immutable.js `Map` / `List`，引用比对零成本                            |
+| **插件架构**      | 6 个生命周期钩子拦截 action 执行与数据变更                                  |
+| **模块设计**      | Data / Action / Plugin 职责分离，可独立测试                                 |
+| **批量更新**      | `batch()` 合并多次变更为一次通知                                            |
+| **路径订阅**      | `subscribe(path, cb)` 精确监听任意路径变化                                  |
+| **DevTools 集成** | Redux DevTools Extension（时间旅行） + Vue DevTools（Inspector + Timeline） |
+| **内置插件**      | Logger / History (undo/redo) / Persist / ReduxDevtools / VueDevtools        |
+| **类型安全**      | 完整 TypeScript 泛型，编译期捕获类型错误                                    |
+| **零外部依赖**    | 仅依赖 `immutable` 一个运行时包                                             |
 
 ## 安装
 
@@ -33,35 +33,35 @@ npm install common-store
 ## 快速示例
 
 ```typescript
-import { Store, Logger, History } from 'common-store';
+import { Store, Logger, History } from "common-store";
 
 // 创建 Store
-const store = new Store({ count: 0, user: { name: 'Alice' } });
+const store = new Store({ count: 0, user: { name: "Alice" } });
 
 // 修改数据
-store.data.set('count', 10);
-store.data.update('user.name', () => 'Bob');
+store.data.set("count", 10);
+store.data.update("user.name", () => "Bob");
 
 // 注册并执行 Action
-store.actions.register('increment', (s, step = 1) => {
-  const cur = s.getState<number>('count') ?? 0;
-  s.data.set('count', cur + step);
-  return s.getState('count');
+store.actions.register("increment", (s, step = 1) => {
+  const cur = s.getState<number>("count") ?? 0;
+  s.data.set("count", cur + step);
+  return s.getState("count");
 });
-await store.dispatch('increment', 5); // count: 15
+await store.dispatch("increment", 5); // count: 15
 
 // 订阅特定路径
-store.subscribe('count', (val, old) => console.log(`count: ${old} -> ${val}`));
+store.subscribe("count", (val, old) => console.log(`count: ${old} -> ${val}`));
 
 // 使用插件
-store.use(Logger());               // 控制台日志
-store.use(History());              // undo/redo 支持
+store.use(Logger()); // 控制台日志
+store.use(History()); // undo/redo 支持
 
 // Redux DevTools Extension（浏览器扩展中查看 action 历史和时间旅行）
-store.use(ReduxDevtools({ name: 'MyApp' }));
+store.use(ReduxDevtools({ name: "MyApp" }));
 
 // Vue DevTools（Inspector 状态面板 + Timeline 时间线）
-store.use(VueDevtools({ inspectorLabel: 'My Store' }));
+store.use(VueDevtools({ inspectorLabel: "My Store" }));
 ```
 
 ## 核心概念
@@ -71,9 +71,11 @@ store.use(VueDevtools({ inspectorLabel: 'My Store' }));
 基于 Immutable.js 的不可变数据层，支持嵌套路径读写、深度合并、数组操作和批量更新。
 
 ```typescript
-store.data.set('user.addresses[0].city', 'Beijing');
-store.data.merge('user', { age: 26 });
-store.data.batch(() => { /* 多个变更，一次通知 */ });
+store.data.set("user.addresses[0].city", "Beijing");
+store.data.merge("user", { age: 26 });
+store.data.batch(() => {
+  /* 多个变更，一次通知 */
+});
 ```
 
 ### Action — 数据处理
@@ -81,9 +83,9 @@ store.data.batch(() => { /* 多个变更，一次通知 */ });
 注册命名的处理函数，封装业务逻辑。支持同步/异步，通过插件系统可拦截执行全过程。
 
 ```typescript
-store.actions.register('fetchUser', async (s, id: string) => {
+store.actions.register("fetchUser", async (s, id: string) => {
   const res = await fetch(`/api/users/${id}`);
-  s.data.set('user', await res.json());
+  s.data.set("user", await res.json());
 });
 ```
 
@@ -93,47 +95,49 @@ store.actions.register('fetchUser', async (s, id: string) => {
 
 ```typescript
 store.use(Logger({ logActions: true }));
-store.use(Persist({ key: 'my-app', paths: ['user'] }));
-store.use(ReduxDevtools({ name: 'MyApp', maxAge: 50 }));
-store.use(VueDevtools({ inspectorLabel: 'My Store' }));
+store.use(Persist({ key: "my-app", paths: ["user"] }));
+store.use(ReduxDevtools({ name: "MyApp", maxAge: 50 }));
+store.use(VueDevtools({ inspectorLabel: "My Store" }));
 ```
 
 ## 插件钩子
 
-| 钩子 | 触发时机 | 可修改 |
-|------|----------|--------|
-| `install` | 插件注册 | — |
-| `uninstall` | 插件卸载 | — |
-| `beforeAction` | action 执行前 | 参数 |
-| `afterAction` | action 成功后 | — |
-| `onError` | action 异常时 | — |
-| `onDataChange` | 数据变更时 | — |
+| 钩子           | 触发时机      | 可修改 |
+| -------------- | ------------- | ------ |
+| `install`      | 插件注册      | —      |
+| `uninstall`    | 插件卸载      | —      |
+| `beforeAction` | action 执行前 | 参数   |
+| `afterAction`  | action 成功后 | —      |
+| `onError`      | action 异常时 | —      |
+| `onDataChange` | 数据变更时    | —      |
 
 插件可声明依赖关系，PluginManager 自动拓扑排序：
 
 ```typescript
-const pluginA: Plugin = { name: 'A' };
-const pluginB: Plugin = { name: 'B', dependencies: ['A'] };
+const pluginA: Plugin = { name: "A" };
+const pluginB: Plugin = { name: "B", dependencies: ["A"] };
 store.use(pluginA, pluginB); // A 的钩子先于 B 执行
 ```
 
 ## 文档导航
 
 ### 入门
+
 - [快速开始](docs/getting-started.md) — 安装与基础使用
 
 ### API 参考
+
 - [Store / DataManager / ActionManager / PluginManager](docs/api/store.md)
 - [EventListener 事件系统](docs/api/event-listener.md)
 - [工具函数](docs/api/utils.md)
 
 ### 内置插件
+
 - [Logger 插件](docs/plugins/logger.md) — Action 和数据变更日志
 - [History 插件](docs/plugins/history.md) — Undo/Redo
 - [Persist 插件](docs/plugins/persist.md) — 状态持久化
 - [Redux DevTools 插件](docs/plugins/redux-devtools.md) — Redux DevTools Extension 集成，时间旅行与 action 回放
 - [Vue DevTools 插件](docs/plugins/vue-devtools.md) — Vue DevTools Inspector 和 Timeline 支持
-
 
 ---
 

@@ -1,9 +1,9 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { Utils } from '../../lib';
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { Utils } from "../../lib";
 
 const { debounce, throttle } = Utils;
 
-describe('debounce', () => {
+describe("debounce", () => {
   beforeEach(() => {
     vi.useFakeTimers();
   });
@@ -12,7 +12,7 @@ describe('debounce', () => {
     vi.useRealTimers();
   });
 
-  it('应该在延迟后执行函数', () => {
+  it("应该在延迟后执行函数", () => {
     const fn = vi.fn();
     const debounced = debounce(fn, 100);
 
@@ -23,20 +23,20 @@ describe('debounce', () => {
     expect(fn).toHaveBeenCalledTimes(1);
   });
 
-  it('多次调用应该只执行最后一次', () => {
+  it("多次调用应该只执行最后一次", () => {
     const fn = vi.fn();
     const debounced = debounce(fn, 100);
 
-    debounced('a');
-    debounced('b');
-    debounced('c');
+    debounced("a");
+    debounced("b");
+    debounced("c");
 
     vi.advanceTimersByTime(100);
     expect(fn).toHaveBeenCalledTimes(1);
-    expect(fn).toHaveBeenCalledWith('c');
+    expect(fn).toHaveBeenCalledWith("c");
   });
 
-  it('在延迟期间内再次调用应该重置计时器', () => {
+  it("在延迟期间内再次调用应该重置计时器", () => {
     const fn = vi.fn();
     const debounced = debounce(fn, 100);
 
@@ -51,7 +51,7 @@ describe('debounce', () => {
   });
 });
 
-describe('throttle', () => {
+describe("throttle", () => {
   beforeEach(() => {
     vi.useFakeTimers();
   });
@@ -60,7 +60,7 @@ describe('throttle', () => {
     vi.useRealTimers();
   });
 
-  it('应该立即执行第一次调用', () => {
+  it("应该立即执行第一次调用", () => {
     const fn = vi.fn();
     const throttled = throttle(fn, 100);
 
@@ -68,7 +68,7 @@ describe('throttle', () => {
     expect(fn).toHaveBeenCalledTimes(1);
   });
 
-  it('在间隔内的调用应该被节流', () => {
+  it("在间隔内的调用应该被节流", () => {
     const fn = vi.fn();
     const throttled = throttle(fn, 100);
 
@@ -78,20 +78,20 @@ describe('throttle', () => {
     expect(fn).toHaveBeenCalledTimes(1);
   });
 
-  it('间隔结束后新调用应该再次执行', () => {
+  it("间隔结束后新调用应该再次执行", () => {
     const fn = vi.fn();
     const throttled = throttle(fn, 100);
 
-    throttled('a');
+    throttled("a");
     expect(fn).toHaveBeenCalledTimes(1);
 
     vi.advanceTimersByTime(100);
-    throttled('b');
+    throttled("b");
     expect(fn).toHaveBeenCalledTimes(2);
-    expect(fn).toHaveBeenCalledWith('b');
+    expect(fn).toHaveBeenCalledWith("b");
   });
 
-  it('应该传递正确的参数', () => {
+  it("应该传递正确的参数", () => {
     const fn = vi.fn();
     const throttled = throttle(fn, 100);
 

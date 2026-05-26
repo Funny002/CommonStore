@@ -1,4 +1,10 @@
-import type { Store } from './store';
+/**
+ * Action 动作管理模块
+ *
+ * 提供 Action 的注册、注销、查询和执行功能。
+ * Action 执行时自动触发插件的 beforeAction / afterAction / onError 钩子。
+ */
+import type { Store } from "./store";
 
 /**
  * Action 处理器类型定义
@@ -7,6 +13,7 @@ import type { Store } from './store';
  */
 export type ActionHandler<TArgs extends any[] = any[], TReturn = any> = (store: Store, ...args: TArgs) => TReturn | Promise<TReturn>;
 
+/** 所有已注册 action 的通用处理函数类型 */
 type AnyActionHandler = ActionHandler<any[], any>;
 
 /**
@@ -14,7 +21,9 @@ type AnyActionHandler = ActionHandler<any[], any>;
  * 提供动作的注册、注销、查询和执行功能
  */
 export class ActionManager {
+  /** 已注册的 action 映射表 */
   private readonly actions = new Map<string, AnyActionHandler>();
+  /** 关联的 Store 实例 */
   private readonly store: Store;
 
   /**
@@ -81,8 +90,8 @@ export class ActionManager {
   async dispatch<TArgs extends any[], TReturn>(name: string, ...args: TArgs): Promise<TReturn> {
     const handler = this.actions.get(name);
     if (!handler) {
-      const available = this.getActionNames().join(', ');
-      throw new Error(`Action "${name}" not found. Available actions: ${available || '(none)'}`);
+      const available = this.getActionNames().join(", ");
+      throw new Error(`Action "${name}" not found. Available actions: ${available || "(none)"}`);
     }
     // 触发 beforeAction 钩子，允许插件修改参数
     const processedArgs = this.store.plugins.triggerBeforeAction(name, args);

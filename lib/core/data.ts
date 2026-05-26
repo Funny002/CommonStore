@@ -1,3 +1,9 @@
+/**
+ * Data 数据管理模块
+ *
+ * 基于 Immutable.js 的不可变数据层。
+ * 支持嵌套路径读写、深度合并、数组操作、批量更新和树遍历查找。
+ */
 import { List, Map, fromJS, is } from "immutable";
 
 /**
@@ -13,6 +19,7 @@ export type DataPath = (string | number)[];
  */
 export type DataChangeCallback = (path: string[], newValue: unknown, oldValue: unknown) => void;
 
+/** Immutable.js Map 类型别名 */
 type ImmutableData = Map<string, unknown>;
 
 /**
@@ -22,7 +29,12 @@ type ImmutableData = Map<string, unknown>;
  */
 function normalizePath(path: string | DataPath): DataPath {
   if (Array.isArray(path)) return path;
-  return path.split(".").filter((segment) => segment.trim().length > 0);
+  const segments = path.split(".");
+  const filtered = segments.filter((segment) => segment.trim().length > 0);
+  if (filtered.length !== segments.length) {
+    throw new Error(`Invalid path "${path}": path contains empty segments.`);
+  }
+  return filtered;
 }
 
 /**
@@ -68,9 +80,13 @@ function traverse(node: unknown, currentPath: string[], visit: (value: unknown, 
  * 基于 Immutable.js 提供不可变数据操作和变更通知
  */
 export class DataManager {
+  /** 当前状态数据（Immutable Map） */
   private state: ImmutableData;
+  /** 初始状态快照，用于 reset() 恢复 */
   private readonly initialState: ImmutableData;
+  /** 数据变更回调函数 */
   private readonly onChange: DataChangeCallback;
+  /** 批量操作嵌套深度计数，大于 0 时暂不通知 */
   private batchDepth = 0;
 
   /**
@@ -102,7 +118,7 @@ export class DataManager {
    * @returns 原始 Immutable 数据
    */
   getRaw(path?: string | DataPath): unknown {
-    if (!path) return this.state;
+    if (path === undefined || path === null || path === "" || (Array.isArray(path) && path.length === 0)) return this.state;
     const keys = normalizePath(path);
     return this.state.getIn(keys);
   }
@@ -167,7 +183,7 @@ export class DataManager {
     const toMerge = fromJS(value) as ImmutableData;
     let newState: ImmutableData;
     if (Map.isMap(existing)) {
-      newState = this.state.setIn(keys, (existing as ImmutableData).mergeDeep(toMerge));
+      newState = this.state.setIn(keys, existing.mergeDeep(toMerge));
     } else {
       newState = this.state.setIn(keys, toMerge);
     }
@@ -293,10 +309,9 @@ export class DataManager {
           keepValues.push({ keys, value: this.state.getIn(keys) });
         }
       }
-      this.state = fromJS({}) as ImmutableData;
-      this.state = this.state.mergeDeep(this.initialState) as ImmutableData;
+      this.state = this.initialState.mergeDeep(fromJS({})) as ImmutableData;
       for (const { keys, value } of keepValues) {
-        this.state = this.state.setIn(keys, value as any) as ImmutableData;
+        this.state = this.state.setIn(keys, value) as ImmutableData;
       }
     } else {
       this.state = this.initialState;

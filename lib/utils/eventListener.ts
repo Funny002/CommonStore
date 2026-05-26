@@ -1,14 +1,18 @@
 /**
- * 事件处理函数类型
+ * EventListener 事件系统模块
+ *
+ * 轻量级事件发射器，支持 on / off / once / emit / removeAll / clear。
+ * Store 类通过继承 EventListener 获得事件监听能力，用于路径订阅通知。
  */
-export type EventFunction = (...args: any[]) => void
+export type EventFunction = (...args: any[]) => void;
 
 /**
  * 事件监听器类
  * 支持 on、off、once、emit 等标准事件方法
  */
 export class EventListener {
-  private _listener: Map<string, EventFunction []>;
+  /** 事件到监听器数组的映射表 */
+  private _listener: Map<string, EventFunction[]>;
 
   /**
    * 构造函数，初始化事件映射表
@@ -46,7 +50,10 @@ export class EventListener {
    */
   off(eventName: string, listener: EventFunction) {
     const list = this._listener.get(eventName) || [];
-    this._listener.set(eventName, list.filter(l => l !== listener));
+    this._listener.set(
+      eventName,
+      list.filter((l) => l !== listener),
+    );
   }
 
   /**

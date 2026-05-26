@@ -1,4 +1,10 @@
-import type { Plugin, Store } from '../core';
+/**
+ * Logger 日志插件
+ *
+ * 提供 action 执行和数据变更的日志记录功能。
+ * 支持分组日志、耗时统计、独立的 logActions/logDataChanges 开关和自定义 logger 对象。
+ */
+import type { Plugin, Store } from "../core";
 
 /**
  * 日志插件配置选项
@@ -11,12 +17,13 @@ export interface LoggerOptions {
   logDataChanges?: boolean;
 
   /** 自定义日志输出对象，默认 console */
-  logger?: Pick<Console, 'log' | 'group' | 'groupEnd' | 'error'>;
+  logger?: Pick<Console, "log" | "group" | "groupEnd" | "error">;
 
   /** 是否显示耗时，默认 true */
   showDuration?: boolean;
 }
 
+/** 插件默认配置 */
 const defaultOptions: Required<LoggerOptions> = {
   logActions: true,
   logDataChanges: true,
@@ -30,25 +37,25 @@ const defaultOptions: Required<LoggerOptions> = {
  * @returns 插件实例
  */
 export const Logger = (options: LoggerOptions = {}): Plugin<Store> => {
-  const opts = {...defaultOptions, ...options};
+  const opts = { ...defaultOptions, ...options };
   const startTimeStack: number[] = [];
 
   return {
-    name: 'logger',
-    version: '1.0.0',
+    name: "logger",
+    version: "1.0.0",
 
     /**
      * 安装插件时打印日志
      */
     install() {
-      opts.logger.log?.('[Logger] 插件已安装');
+      opts.logger.log?.("[Logger] 插件已安装");
     },
 
     /**
      * 卸载插件时打印日志
      */
     uninstall() {
-      opts.logger.log?.('[Logger] 插件已卸载');
+      opts.logger.log?.("[Logger] 插件已卸载");
     },
 
     /**
@@ -63,9 +70,9 @@ export const Logger = (options: LoggerOptions = {}): Plugin<Store> => {
       startTimeStack.push(startTime);
 
       opts.logger.group?.(`⚡ Action: ${actionName}`);
-      opts.logger.log?.('参数:', args);
+      opts.logger.log?.("参数:", args);
       if (opts.showDuration) {
-        opts.logger.log?.('开始时间:', new Date(startTime).toISOString());
+        opts.logger.log?.("开始时间:", new Date(startTime).toISOString());
       }
     },
 
@@ -81,10 +88,10 @@ export const Logger = (options: LoggerOptions = {}): Plugin<Store> => {
       const startTime = startTimeStack.pop();
       const duration = startTime !== undefined ? Date.now() - startTime : undefined;
 
-      opts.logger.log?.('✅ 完成');
-      opts.logger.log?.('⚡ Action:', actionName);
-      opts.logger.log?.('参数:', args);
-      opts.logger.log?.('返回值:', result);
+      opts.logger.log?.("✅ 完成");
+      opts.logger.log?.("⚡ Action:", actionName);
+      opts.logger.log?.("参数:", args);
+      opts.logger.log?.("返回值:", result);
       if (opts.showDuration && duration !== undefined) {
         opts.logger.log?.(`⏱️ 耗时: ${duration}ms`);
       }
@@ -104,8 +111,8 @@ export const Logger = (options: LoggerOptions = {}): Plugin<Store> => {
       const duration = startTime !== undefined ? Date.now() - startTime : undefined;
 
       opts.logger.group?.(`❌ Action 失败: ${actionName}`);
-      opts.logger.error?.('错误:', error);
-      opts.logger.log?.('参数:', args);
+      opts.logger.error?.("错误:", error);
+      opts.logger.log?.("参数:", args);
       if (opts.showDuration && duration !== undefined) {
         opts.logger.log?.(`⏱️ 耗时: ${duration}ms`);
       }
@@ -121,10 +128,10 @@ export const Logger = (options: LoggerOptions = {}): Plugin<Store> => {
     onDataChange(path: string[], newValue: unknown, oldValue: unknown): void {
       if (!opts.logDataChanges) return;
 
-      const pathStr = path.length ? path.join('.') : '根路径';
+      const pathStr = path.length ? path.join(".") : "根路径";
       opts.logger.group?.(`📦 数据变更: ${pathStr}`);
-      opts.logger.log?.('旧值:', oldValue);
-      opts.logger.log?.('新值:', newValue);
+      opts.logger.log?.("旧值:", oldValue);
+      opts.logger.log?.("新值:", newValue);
       opts.logger.groupEnd?.();
     },
   };

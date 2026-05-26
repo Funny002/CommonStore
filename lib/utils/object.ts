@@ -1,11 +1,16 @@
 /**
+ * 对象工具模块
+ *
+ * 提供类型检测（getType / isObject / isArray / isString / isNumber / isFunction / isEmpty）。
+ */
+/**
  * 获取值的类型字符串
  * @param target - 待检测的值
  * @param lower - 是否转换为小写，默认 true
  * @returns 类型字符串，如 'object'、'array'、'string' 等
  */
 export function getType(target: any, lower = true): string {
-  return (val => lower ? val.toLowerCase() : val)(Object.prototype.toString.call(target).slice(8, -1));
+  return ((val) => (lower ? val.toLowerCase() : val))(Object.prototype.toString.call(target).slice(8, -1));
 }
 
 /**
@@ -13,7 +18,7 @@ export function getType(target: any, lower = true): string {
  * @param target - 待检测的值
  * @returns 是否为对象类型
  */
-export const isObject = (target: any): target is Object => getType(target) === 'object';
+export const isObject = (target: any): target is Object => getType(target) === "object";
 
 /**
  * 判断是否为数组
@@ -27,7 +32,7 @@ export const isArray = (target: any): target is Array<any> => Array.isArray(targ
  * @param target - 待检测的值
  * @returns 是否为字符串
  */
-export const isString = (target: any): target is string => getType(target) === 'string';
+export const isString = (target: any): target is string => getType(target) === "string";
 
 /**
  * 判断是否为有限数字
@@ -42,7 +47,7 @@ export const isNumber = (target: any): target is number => Number.isFinite(targe
  * @returns 是否为函数
  */
 export const isFunction = (target: any): target is Function => {
-  return ['Function', 'AsyncFunction'].includes(getType(target, false));
+  return ["Function", "AsyncFunction"].includes(getType(target, false));
 };
 
 /**

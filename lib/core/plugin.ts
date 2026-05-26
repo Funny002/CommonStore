@@ -1,4 +1,10 @@
-import type { Store } from './store';
+/**
+ * Plugin 插件系统模块
+ *
+ * 提供插件接口定义和插件管理器。
+ * 支持插件的注册、卸载、依赖管理和拓扑排序，通过 6 个生命周期钩子拦截 action 执行与数据变更。
+ */
+import type { Store } from "./store";
 
 /**
  * 插件接口定义
@@ -65,7 +71,9 @@ export interface Plugin<TStore extends Store = Store> {
  * @template TStore - Store 类型，默认为 Store
  */
 export class PluginManager<TStore extends Store = Store> {
+  /** 已注册的插件映射表，按名称索引 */
   private readonly plugins = new Map<string, Plugin<TStore>>();
+  /** 关联的 Store 实例 */
   private readonly store: TStore;
 
   /**
@@ -83,10 +91,10 @@ export class PluginManager<TStore extends Store = Store> {
    * @throws 如果插件已存在或依赖不满足
    */
   use(...plugins: Array<Plugin<TStore>>): void {
-    const newPlugins = plugins.filter(p => !this.plugins.has(p.name));
+    const newPlugins = plugins.filter((p) => !this.plugins.has(p.name));
     if (newPlugins.length !== plugins.length) {
-      const duplicates = plugins.filter(p => this.plugins.has(p.name)).map(p => p.name);
-      throw new Error(`Plugins already registered: ${duplicates.join(', ')}`);
+      const duplicates = plugins.filter((p) => this.plugins.has(p.name)).map((p) => p.name);
+      throw new Error(`Plugins already registered: ${duplicates.join(", ")}`);
     }
 
     const allPlugins = new Map<string, Plugin<TStore>>(this.plugins);
