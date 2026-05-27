@@ -1,4 +1,5 @@
-import { Store, Logger, History, Persist, ReduxDevtools, VueDevtools } from "../lib";
+import { Store, Logger, History, Persist, ReduxDevtools } from "../lib";
+import { VueDevtools } from "../lib/vue-devtools";
 import { initialState, nextTodoId, nextTreeNodeId } from "./demoData";
 import { registerDemoActions } from "./demoActions";
 import { $ } from "./jQueryLike";
@@ -8,7 +9,7 @@ const loggerPlugin = Logger();
 const historyPlugin = History({ maxHistorySize: 50 });
 const persistPlugin = Persist({ key: "commonstore-demo", debounce: 500 });
 const reduxPlugin = ReduxDevtools({ name: "CommonStoreDemo" });
-const vuePlugin = VueDevtools({ inspectorLabel: "CommonStore Demo" });
+const vuePlugin = VueDevtools(undefined, { inspectorLabel: "CommonStore Demo" });
 
 store.use(loggerPlugin, historyPlugin, persistPlugin, reduxPlugin, vuePlugin);
 registerDemoActions(store);

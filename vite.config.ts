@@ -7,13 +7,19 @@ const __dirname = fileURLToPath(new URL(".", import.meta.url));
 export default defineConfig({
   build: {
     lib: {
-      entry: resolve(__dirname, "lib/index.ts"),
+      entry: {
+        index: resolve(__dirname, "lib/index.ts"),
+        "vue-devtools": resolve(__dirname, "lib/vue-devtools.ts"),
+      },
       name: "CommonStore",
       formats: ["es", "cjs"],
-      fileName: (format) => `index.${format}.js`,
+      fileName: (_format, entryName) => {
+        const ext = _format === "es" ? "es" : "cjs";
+        return `${entryName}.${ext}.js`;
+      },
     },
     rollupOptions: {
-      external: ["immutable"],
+      external: ["immutable", "@vue/devtools-kit"],
       output: {
         globals: {
           immutable: "Immutable",

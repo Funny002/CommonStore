@@ -3,8 +3,19 @@
  *
  * 将 Store 集成到 Vue DevTools，提供 Inspector 状态面板和 Timeline 时间线。
  * 支持状态的树形浏览、在线编辑和 action 执行时间线追踪。
+ *
+ * 优先使用 setupDevtoolsPlugin（需传入 Vue app 实例），无 app 时降级到全局 Hook。
  */
+import {
+  setupDevToolsPlugin,
+  type PluginSetupFunction,
+  type App,
+  type PluginDescriptor,
+  type CustomInspectorNode,
+} from "@vue/devtools-kit";
 import type { Plugin, Store } from "../core";
+
+type DevToolsAPI = Parameters<PluginSetupFunction>[0];
 
 /**
  * Vue DevTools 插件配置选项
@@ -16,108 +27,8 @@ export interface VueDevtoolsOptions {
   timelineLabel?: string;
 }
 
-/** Vue DevTools API 接口 */
-interface DevtoolsApi {
-  addInspector(options: InspectorOptions): void;
-  addTimelineLayer(options: TimelineLayerOptions): void;
-  addTimelineEvent(options: TimelineEventOptions): void;
-  sendInspectorTree(inspectorId: string): void;
-  sendInspectorState(inspectorId: string): void;
-  now(): number;
-  on: {
-    getInspectorTree: (handler: (payload: InspectorTreePayload) => void) => void;
-    getInspectorState: (handler: (payload: InspectorStatePayload) => void) => void;
-    editInspectorState: (handler: (payload: EditInspectorStatePayload) => void) => void;
-    inspectTimelineEvent: (handler: (payload: InspectTimelineEventPayload) => void) => void;
-  };
-}
-
-/** Inspector 面板配置 */
-interface InspectorOptions {
-  id: string;
-  label: string;
-  icon: string;
-  treeFilterPlaceholder?: string;
-  stateFilterPlaceholder?: string;
-}
-
-/** Timeline 图层配置 */
-interface TimelineLayerOptions {
-  id: string;
-  label: string;
-  color: number;
-}
-
-/** Timeline 事件配置 */
-interface TimelineEventOptions {
-  layerId: string;
-  event: {
-    time: number;
-    title: string;
-    subtitle?: string;
-    data?: Record<string, unknown>;
-    groupId?: string;
-    logType?: "default" | "warning" | "error";
-  };
-}
-
-/** Inspector 树节点 */
-interface InspectorNode {
-  id: string;
-  label: string;
-  children?: InspectorNode[];
-  tags?: Array<{ label: string; textColor: number; backgroundColor: number }>;
-}
-
-/** getInspectorTree 回调的载荷 */
-interface InspectorTreePayload {
-  app: unknown;
-  inspectorId: string;
-  rootNodes: InspectorNode[];
-}
-
-/** Inspector 状态项 */
-interface InspectorStateItem {
-  key: string;
-  value: unknown;
-  editable: boolean;
-}
-
-/** getInspectorState 回调的载荷 */
-interface InspectorStatePayload {
-  app: unknown;
-  inspectorId: string;
-  nodeId: string;
-  state: Record<string, InspectorStateItem[]>;
-}
-
-/** editInspectorState 回调的载荷 */
-interface EditInspectorStatePayload {
-  app: unknown;
-  inspectorId: string;
-  nodeId: string;
-  path: string[];
-  state: { value: unknown; newKey?: string; remove?: boolean };
-  set: (obj: unknown, path: string[], value: unknown) => void;
-}
-
-/** inspectTimelineEvent 回调的载荷 */
-interface InspectTimelineEventPayload {
-  layerId: string;
-  data: Record<string, unknown>;
-}
-
-/** Vue DevTools 全局 Hook 接口 */
-interface DevtoolsHook {
-  on(event: string, handler: (api: DevtoolsApi) => void): void;
-  once?(event: string, handler: (api: DevtoolsApi) => void): void;
-  emit(event: string, api: DevtoolsApi): void;
-}
-
-declare global {
-  var __VUE_DEVTOOLS_GLOBAL_HOOK__: DevtoolsHook | undefined;
-}
-
+/** 插件描述符 ID */
+const PLUGIN_ID = "dev.common-store";
 /** Inspector 面板标识符 */
 const INSPECTOR_ID = "common-store";
 /** Timeline 图层标识符 */
@@ -133,9 +44,6 @@ const TAG_COLORS: Record<string, { textColor: number; backgroundColor: number }>
   null: { textColor: 0xffffff, backgroundColor: 0x909399 },
   function: { textColor: 0xffffff, backgroundColor: 0xb37feb },
 };
-
-/** Timeline 事件分组计数器，确保每组 action 有唯一 groupId */
-let actionGroupCounter = 0;
 
 /** 获取值的类型标签颜色 */
 function getTypeTag(value: unknown): { textColor: number; backgroundColor: number } | undefined {
@@ -161,45 +69,6 @@ function nodeIdToPath(nodeId: string): string[] {
   return nodeId.split(".");
 }
 
-/** 递归构建 Inspector 状态树 */
-function buildTree(state: Record<string, unknown>, basePath: string[] = []): InspectorNode[] {
-  const nodes: InspectorNode[] = [];
-  for (const key of Object.keys(state).sort()) {
-    const value = state[key];
-    const nodePath = [...basePath, key];
-    const node: InspectorNode = {
-      id: pathToNodeId(nodePath),
-      label: `${key}: ${formatValue(value)}`,
-    };
-
-    const tag = getTypeTag(value);
-    if (tag) {
-      node.tags = [{ label: typeof value === "object" && value !== null ? (Array.isArray(value) ? "array" : "object") : typeof value, ...tag }];
-    }
-
-    if (value !== null && typeof value === "object" && !Array.isArray(value)) {
-      node.children = buildTree(value as Record<string, unknown>, nodePath);
-    } else if (Array.isArray(value)) {
-      node.children = (value as unknown[]).map((item, idx) => {
-        const itemNode: InspectorNode = {
-          id: pathToNodeId([...nodePath, String(idx)]),
-          label: `${idx}: ${formatValue(item)}`,
-        };
-        const itemTag = getTypeTag(item);
-        if (itemTag) {
-          itemNode.tags = [{ label: typeof item === "object" && item !== null ? (Array.isArray(item) ? "array" : "object") : typeof item, ...itemTag }];
-        }
-        if (item !== null && typeof item === "object" && !Array.isArray(item)) {
-          itemNode.children = buildTree(item as Record<string, unknown>, [...nodePath, String(idx)]);
-        }
-        return itemNode;
-      });
-    }
-    nodes.push(node);
-  }
-  return nodes;
-}
-
 /** 格式化状态值用于 Inspector 显示，超过 30 字符的字符串会截断 */
 function formatValue(value: unknown): string {
   if (value === null) return "null";
@@ -217,8 +86,92 @@ function formatValue(value: unknown): string {
   return String(value);
 }
 
+/** 递归构建 Inspector 状态树，支持关键词过滤 */
+function buildTree(state: Record<string, unknown>, filter?: string, basePath: string[] = []): CustomInspectorNode[] {
+  const nodes: CustomInspectorNode[] = [];
+  const filterLower = filter?.toLowerCase();
+
+  for (const key of Object.keys(state).sort()) {
+    const value = state[key];
+    const nodePath = [...basePath, key];
+    const label = `${key}: ${formatValue(value)}`;
+
+    if (filterLower && !key.toLowerCase().includes(filterLower) && !label.toLowerCase().includes(filterLower)) {
+      const children = buildChildrenNodes(value, nodePath, filterLower);
+      if (children.length === 0) continue;
+      const node: CustomInspectorNode = {
+        id: pathToNodeId(nodePath),
+        label,
+      };
+      const tag = getTypeTag(value);
+      if (tag) {
+        const typeLabel =
+          value !== null && typeof value === "object" ? (Array.isArray(value) ? "array" : "object") : typeof value;
+        node.tags = [{ label: typeLabel, ...tag }];
+      }
+      node.children = children;
+      nodes.push(node);
+      continue;
+    }
+
+    const node: CustomInspectorNode = {
+      id: pathToNodeId(nodePath),
+      label,
+    };
+
+    const tag = getTypeTag(value);
+    if (tag) {
+      const typeLabel =
+        value !== null && typeof value === "object" ? (Array.isArray(value) ? "array" : "object") : typeof value;
+      node.tags = [{ label: typeLabel, ...tag }];
+    }
+
+    if (value !== null && typeof value === "object" && !Array.isArray(value)) {
+      node.children = buildTree(value as Record<string, unknown>, undefined, nodePath);
+    } else if (Array.isArray(value)) {
+      node.children = buildArrayChildren(value as unknown[], nodePath, undefined);
+    }
+    nodes.push(node);
+  }
+  return nodes;
+}
+
+/** 为数组元素构建子节点 */
+function buildArrayChildren(arr: unknown[], basePath: string[], filter?: string): CustomInspectorNode[] {
+  const filterLower = filter?.toLowerCase();
+  return arr
+    .map((item, idx) => {
+      const itemPath = [...basePath, String(idx)];
+      const itemNode: CustomInspectorNode = {
+        id: pathToNodeId(itemPath),
+        label: `${idx}: ${formatValue(item)}`,
+      };
+      const itemTag = getTypeTag(item);
+      if (itemTag) {
+        const typeLabel = item !== null && typeof item === "object" ? (Array.isArray(item) ? "array" : "object") : typeof item;
+        itemNode.tags = [{ label: typeLabel, ...itemTag }];
+      }
+      if (item !== null && typeof item === "object" && !Array.isArray(item)) {
+        itemNode.children = buildTree(item as Record<string, unknown>, undefined, itemPath);
+      }
+      return itemNode;
+    })
+    .filter((node) => !filterLower || node.label.toLowerCase().includes(filterLower) || (node.children && node.children.length > 0));
+}
+
+/** 为对象递归构建子节点（用于过滤时递归匹配不匹配的节点） */
+function buildChildrenNodes(value: unknown, basePath: string[], filter: string): CustomInspectorNode[] {
+  if (value !== null && typeof value === "object" && !Array.isArray(value)) {
+    return buildTree(value as Record<string, unknown>, filter, basePath);
+  }
+  if (Array.isArray(value)) {
+    return buildArrayChildren(value as unknown[], basePath, filter);
+  }
+  return [];
+}
+
 /** 构建 Inspector 状态下各个属性的可编辑项列表 */
-function buildStateItems(data: Record<string, unknown>): InspectorStateItem[] {
+function buildStateItems(data: Record<string, unknown>) {
   return Object.keys(data)
     .sort()
     .map((key) => ({
@@ -230,27 +183,32 @@ function buildStateItems(data: Record<string, unknown>): InspectorStateItem[] {
 
 /**
  * Vue DevTools 插件 — 将 Store 集成到 Vue DevTools，提供 Inspector 状态面板和 Timeline 时间线
+ * @param app - Vue 3 应用实例（可选；无 app 时降级为 Hook 方式）
  * @param options - 插件配置选项
  * @returns 插件实例
  */
-export const VueDevtools = (options: VueDevtoolsOptions = {}): Plugin<Store> => {
+export const VueDevtools = (app?: App, options: VueDevtoolsOptions = {}): Plugin<Store> => {
   const opts = {
     inspectorLabel: "CommonStore",
     timelineLabel: "Actions",
     ...options,
-  };
+  } satisfies { inspectorLabel: string; timelineLabel: string };
 
-  /** Store 实例引用 */
   let storeInstance: Store | null = null;
-  /** Vue DevTools API 实例 */
-  let api: DevtoolsApi | null = null;
-  /** 标记 DevTools 是否已完成初始化设置 */
+  let api: DevToolsAPI | null = null;
   let isSetup = false;
+  /** 抑制 Timeline 事件（编辑状态时） */
+  let isTimelineActive = true;
+  /** Action 分组计数器 */
+  let actionGroupCounter = 0;
+  /** actionName → groupId 栈，用于 start/end 事件配对 */
+  const groupIdStack = new Map<string, string[]>();
 
   /** 获取指定路径的状态值 */
   const getStateValueAt = (path: string[]): unknown => {
     if (!storeInstance) return undefined;
-    return path.length === 0 ? storeInstance.getState() : storeInstance.getState(path);
+    if (path.length === 0) return storeInstance.getState();
+    return storeInstance.getState(path);
   };
 
   /** 刷新 Inspector 面板的树结构和状态显示 */
@@ -260,8 +218,80 @@ export const VueDevtools = (options: VueDevtoolsOptions = {}): Plugin<Store> => 
     api.sendInspectorState(INSPECTOR_ID);
   };
 
+  /** 入栈 groupId（LIFO） */
+  const pushGroupId = (actionName: string) => {
+    actionGroupCounter++;
+    const groupId = `${actionName}-${actionGroupCounter}`;
+    const stack = groupIdStack.get(actionName);
+    if (stack) {
+      stack.push(groupId);
+    } else {
+      groupIdStack.set(actionName, [groupId]);
+    }
+    return groupId;
+  };
+
+  /** 出栈 groupId（LIFO），按 action 名称匹配 */
+  const popGroupId = (actionName: string): string | null => {
+    const stack = groupIdStack.get(actionName);
+    if (!stack || stack.length === 0) return null;
+    return stack.pop()!;
+  };
+
+  /** 向 Timeline 发送事件 */
+  const sendTimelineEvent = (
+    actionName: string,
+    type: "start" | "end" | "error",
+    extras?: { result?: unknown; args?: unknown[]; error?: Error },
+  ) => {
+    if (!api || !isSetup || !isTimelineActive) return;
+
+    const now = api.now();
+    let groupId: string | null = null;
+
+    if (type === "start") {
+      groupId = pushGroupId(actionName);
+    } else {
+      groupId = popGroupId(actionName);
+      if (!groupId) return;
+    }
+
+    const event: Record<string, unknown> = {
+      time: now,
+      title: actionName,
+      subtitle: type,
+      groupId,
+    };
+
+    const data: Record<string, unknown> = {};
+    if (extras?.args) {
+      data.args = extras.args.map((a) => (typeof a === "object" ? JSON.stringify(a) : String(a)));
+    }
+    if (type === "end" && extras?.result !== undefined) {
+      data.result = typeof extras.result === "object" ? JSON.stringify(extras.result) : String(extras.result);
+    }
+    if (type === "error" && extras?.error) {
+      data.error = extras.error.message;
+    }
+    event.data = data;
+
+    const logType = type === "error" ? "error" : "default";
+
+    api.addTimelineEvent({
+      layerId: TIMELINE_LAYER_ID,
+      event: {
+        time: event.time as number,
+        title: event.title as string,
+        subtitle: event.subtitle as string,
+        data: event.data as Record<string, unknown>,
+        groupId: event.groupId as string,
+        logType,
+      },
+    });
+  };
+
   /** 初始化 DevTools 面板和事件监听 */
-  const setupDevtools = (devtoolsApi: DevtoolsApi) => {
+  const setupDevtools = (devtoolsApi: DevToolsAPI, appRef: App | null) => {
     api = devtoolsApi;
 
     api.addInspector({
@@ -270,6 +300,15 @@ export const VueDevtools = (options: VueDevtoolsOptions = {}): Plugin<Store> => 
       icon: "storage",
       treeFilterPlaceholder: "Search state...",
       stateFilterPlaceholder: "Filter...",
+      actions: [
+        {
+          icon: "refresh",
+          tooltip: "Force refresh inspector",
+          action: () => {
+            refreshInspector();
+          },
+        },
+      ],
     });
 
     api.addTimelineLayer({
@@ -278,18 +317,18 @@ export const VueDevtools = (options: VueDevtoolsOptions = {}): Plugin<Store> => 
       color: 0x4fc08d,
     });
 
-    // 响应获取 Inspector 树结构的请求
     api.on.getInspectorTree((payload) => {
       if (payload.inspectorId !== INSPECTOR_ID) return;
+      if (appRef && payload.app !== appRef) return;
       const state = storeInstance?.getState();
       if (state && typeof state === "object") {
-        payload.rootNodes = buildTree(state as Record<string, unknown>);
+        payload.rootNodes = buildTree(state as Record<string, unknown>, payload.filter || undefined);
       }
     });
 
-    // 响应获取 Inspector 节点状态的请求
     api.on.getInspectorState((payload) => {
       if (payload.inspectorId !== INSPECTOR_ID) return;
+      if (appRef && payload.app !== appRef) return;
       const path = nodeIdToPath(payload.nodeId);
       const value = getStateValueAt(path);
       if (value !== null && typeof value === "object" && !Array.isArray(value)) {
@@ -299,45 +338,58 @@ export const VueDevtools = (options: VueDevtoolsOptions = {}): Plugin<Store> => 
       }
     });
 
-    // 响应编辑 Inspector 状态的请求
     api.on.editInspectorState((payload) => {
       if (payload.inspectorId !== INSPECTOR_ID || !storeInstance) return;
+      if (appRef && payload.app !== appRef) return;
       const nodePath = nodeIdToPath(payload.nodeId);
       const targetKey = payload.path[1] ?? payload.path[0];
       const fullPath = [...nodePath, targetKey];
 
-      if (payload.state.remove) {
-        storeInstance.data.delete(fullPath);
-        refreshInspector();
-        return;
+      isTimelineActive = false;
+      try {
+        if (payload.state.remove) {
+          storeInstance.data.delete(fullPath);
+        } else {
+          storeInstance.data.set(fullPath, payload.state.value);
+        }
+      } finally {
+        isTimelineActive = true;
       }
-
-      storeInstance.data.set(fullPath, payload.state.value);
       refreshInspector();
     });
 
-    // 响应查看 Timeline 事件详情的请求
     api.on.inspectTimelineEvent((payload) => {
       if (payload.layerId !== TIMELINE_LAYER_ID) return;
+    });
+
+    api.on.timelineCleared(() => {
+      actionGroupCounter = 0;
+      groupIdStack.clear();
     });
 
     isSetup = true;
     refreshInspector();
   };
 
-  /** 从 Vue DevTools 全局 Hook 获取 DevTools API */
-  const getDevtoolsFromHook = (): Promise<DevtoolsApi | null> => {
+  /** 从 Vue DevTools 全局 Hook 获取 DevTools API（降级路径） */
+  const getDevtoolsFromHook = (): Promise<DevToolsAPI | null> => {
     return new Promise((resolve) => {
-      const hook = globalThis.__VUE_DEVTOOLS_GLOBAL_HOOK__;
+      const g = globalThis as unknown as { __VUE_DEVTOOLS_GLOBAL_HOOK__?: any };
+      const hook = g.__VUE_DEVTOOLS_GLOBAL_HOOK__;
       if (!hook) {
         resolve(null);
         return;
       }
       const timeout = setTimeout(() => resolve(null), 3000);
-      hook.once?.("init", (devtoolsApi: DevtoolsApi) => {
+      const handler = (devtoolsApi: DevToolsAPI) => {
         clearTimeout(timeout);
         resolve(devtoolsApi);
-      });
+      };
+      if (typeof hook.once === "function") {
+        hook.once("init", handler);
+      } else if (typeof hook.on === "function") {
+        hook.on("init", handler);
+      }
     });
   };
 
@@ -345,76 +397,57 @@ export const VueDevtools = (options: VueDevtoolsOptions = {}): Plugin<Store> => 
     name: "vue-devtools",
     version: "1.0.0",
 
-    /**
-     * 安装插件 — 异步等待 DevTools 初始化完成后设置面板
-     */
     install(store: Store) {
       storeInstance = store;
 
-      getDevtoolsFromHook().then((devtoolsApi) => {
-        if (devtoolsApi && !isSetup) {
-          setupDevtools(devtoolsApi);
-        }
-      });
+      if (app) {
+        const descriptor: PluginDescriptor = {
+          id: PLUGIN_ID,
+          label: opts.inspectorLabel,
+          app,
+          packageName: "common-store",
+          homepage: "https://github.com/Funny002/CommonStore",
+          enableEarlyProxy: true,
+        };
+        setupDevToolsPlugin(descriptor, (devtoolsApi) => {
+          if (!isSetup) {
+            setupDevtools(devtoolsApi, app);
+          }
+        });
+      } else {
+        getDevtoolsFromHook().then((devtoolsApi) => {
+          if (devtoolsApi && !isSetup) {
+            setupDevtools(devtoolsApi, null);
+          }
+        });
+      }
     },
 
-    /**
-     * 卸载插件 — 清理内部状态
-     */
     uninstall() {
       isSetup = false;
+      isTimelineActive = true;
       api = null;
       storeInstance = null;
+      actionGroupCounter = 0;
+      groupIdStack.clear();
     },
 
-    /**
-     * Action 执行前 — 向 Timeline 发送 "start" 事件
-     */
     beforeAction(actionName: string, args: unknown[]) {
       if (!api || !isSetup) return;
-      actionGroupCounter++;
-      const groupId = `${actionName}-${actionGroupCounter}`;
-
-      api.addTimelineEvent({
-        layerId: TIMELINE_LAYER_ID,
-        event: {
-          time: api.now(),
-          title: actionName,
-          subtitle: "start",
-          data: { args: args.map((a) => (typeof a === "object" ? JSON.stringify(a) : String(a))) },
-          groupId,
-        },
-      });
+      sendTimelineEvent(actionName, "start", { args });
     },
 
-    /**
-     * Action 成功后 — 刷新 Inspector 面板
-     */
-    afterAction(_actionName: string, _result: unknown) {
+    afterAction(actionName: string, result: unknown) {
       if (!api || !isSetup || !storeInstance) return;
+      sendTimelineEvent(actionName, "end", { result });
       refreshInspector();
     },
 
-    /**
-     * Action 出错时 — 向 Timeline 发送错误事件
-     */
     onError(actionName: string, error: Error) {
       if (!api || !isSetup) return;
-      api.addTimelineEvent({
-        layerId: TIMELINE_LAYER_ID,
-        event: {
-          time: api.now(),
-          title: actionName,
-          subtitle: `Error: ${error.message}`,
-          data: { error: error.message },
-          logType: "error",
-        },
-      });
+      sendTimelineEvent(actionName, "error", { error });
     },
 
-    /**
-     * 数据变更时 — 刷新 Inspector 面板以反映最新状态
-     */
     onDataChange() {
       if (!api || !isSetup) return;
       refreshInspector();

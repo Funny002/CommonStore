@@ -10,11 +10,16 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.es.js",
       "require": "./dist/index.cjs.js"
+    },
+    "./vue-devtools": {
+      "types": "./dist/vue-devtools.d.ts",
+      "import": "./dist/vue-devtools.es.js",
+      "require": "./dist/vue-devtools.cjs.js"
     }
   },
   "scripts": {
     "dev": "vite",
-    "build": "npm run build:types && vite build",
+    "build": "vite build && npm run build:types",
     "build:types": "tsc -p tsconfig.build.json",
     "preview": "vite preview",
     "test": "vitest",
@@ -41,5 +46,8 @@
   "bugs": {
     "url": "https://github.com/Funny002/CommonStore/issues"
   },
-  "homepage": "https://github.com/Funny002/CommonStore#readme"
+  "homepage": "https://github.com/Funny002/CommonStore#readme",
+  "dependencies": {
+    "@vue/devtools-kit": "^8.1.2"
+  }
 }
