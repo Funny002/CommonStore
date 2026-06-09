@@ -136,8 +136,7 @@ store.use(pluginA, pluginB); // A 的钩子先于 B 执行
 - [Logger 插件](docs/plugins/logger.md) — Action 和数据变更日志
 - [History 插件](docs/plugins/history.md) — Undo/Redo
 - [Persist 插件](docs/plugins/persist.md) — 状态持久化
-- [Redux DevTools 插件](docs/plugins/redux-devtools.md) — Redux DevTools Extension 集成，时间旅行与 action 回放
-- [Vue DevTools 插件](docs/plugins/vue-devtools.md) — Vue DevTools Inspector 和 Timeline 支持
+
 
 ---
 

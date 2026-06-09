@@ -7,15 +7,19 @@
  * 创建防抖函数，在连续调用时只执行最后一次
  * @param fn - 需要防抖的函数
  * @param delay - 延迟毫秒数
- * @returns 防抖后的函数，每次调用都会重置计时器
+ * @returns 防抖后的函数（附带 cancel 方法可取消 pending 定时器），每次调用都会重置计时器
  * @template T - 原函数类型
  */
-export function debounce<T extends (...args: any[]) => void>(fn: T, delay: number): (...args: Parameters<T>) => void {
+export function debounce<T extends (...args: any[]) => void>(fn: T, delay: number) {
   let timer: ReturnType<typeof setTimeout> | undefined;
-  return (...args: Parameters<T>) => {
+  const debounced = (...args: Parameters<T>) => {
     clearTimeout(timer);
     timer = setTimeout(() => fn(...args), delay);
   };
+  debounced.cancel = () => {
+    clearTimeout(timer);
+  };
+  return debounced;
 }
 
 /**

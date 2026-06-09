@@ -45,11 +45,11 @@ export const Persist = (options: PersistOptions = {}): Plugin<Store> => {
     ...defaultOptions,
     ...options,
     storage: resolvedStorage,
-  } as Required<PersistOptions> & { storage: Storage | null };
+  };
   /** Store 实例引用 */
   let storeInstance: Store | null = null;
   /** 防抖后的保存函数 */
-  let save: () => void;
+  let save: ReturnType<typeof debounce<() => void>>;
 
   /** 执行实际的持久化保存操作 */
   const doSave = () => {
@@ -102,9 +102,10 @@ export const Persist = (options: PersistOptions = {}): Plugin<Store> => {
     },
 
     /**
-     * 卸载插件 — 立即执行最后一次保存后清理引用
+     * 卸载插件 — 取消 pending 定时器，执行最后一次保存，清理引用
      */
     uninstall() {
+      save.cancel();
       doSave();
       storeInstance = null;
     },

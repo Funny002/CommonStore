@@ -49,6 +49,30 @@ describe("debounce", () => {
     vi.advanceTimersByTime(50);
     expect(fn).toHaveBeenCalledTimes(1);
   });
+
+  it("cancel 应该取消 pending 定时器", () => {
+    const fn = vi.fn();
+    const debounced = debounce(fn, 100);
+
+    debounced();
+    debounced.cancel();
+
+    vi.advanceTimersByTime(200);
+    expect(fn).not.toHaveBeenCalled();
+  });
+
+  it("cancel 后再次调用应该重新启动定时器", () => {
+    const fn = vi.fn();
+    const debounced = debounce(fn, 100);
+
+    debounced();
+    debounced.cancel();
+    debounced("new");
+
+    vi.advanceTimersByTime(100);
+    expect(fn).toHaveBeenCalledTimes(1);
+    expect(fn).toHaveBeenCalledWith("new");
+  });
 });
 
 describe("throttle", () => {
