@@ -1,29 +1,20 @@
-/**
- * Logger 日志插件
- *
- * 提供 action 执行和数据变更的日志记录功能。
- * 支持分组日志、耗时统计、独立的 logActions/logDataChanges 开关和自定义 logger 对象。
- */
 import type { Plugin, Store } from '../core';
 
-/**
- * 日志插件配置选项
- */
+/** 日志插件配置选项 */
 export interface LoggerOptions {
-  /** 是否记录 action，默认 true */
+  /** 是否记录 action 执行，默认 true */
   logActions?: boolean;
 
   /** 是否记录数据变更，默认 true */
   logDataChanges?: boolean;
 
-  /** 自定义日志输出对象，默认 console */
+  /** 自定义日志输出器，需实现 Console 的部分接口 */
   logger?: Pick<Console, 'log' | 'group' | 'groupEnd' | 'error'>;
 
-  /** 是否显示耗时，默认 true */
+  /** 是否显示 action 耗时，默认 true */
   showDuration?: boolean;
 }
 
-/** 插件默认配置 */
 const defaultOptions: Required<LoggerOptions> = {
   logActions: true,
   logDataChanges: true,
@@ -32,98 +23,80 @@ const defaultOptions: Required<LoggerOptions> = {
 };
 
 /**
- * 日志记录插件 提供 action 执行和数据变更的日志记录功能
- * @param options - 插件配置选项
+ * 创建日志插件
+ *
+ * @param options - 日志配置
  * @returns 插件实例
  */
 export const Logger = (options: LoggerOptions = {}): Plugin<Store> => {
   const opts = { ...defaultOptions, ...options };
+
+  /** Action 开始时间栈，用于计算耗时 */
   const startTimeStack: number[] = [];
+
+  const logDuration = (startTimeStack: number[]) => {
+    const startTime = startTimeStack.pop();
+    if (startTime !== undefined && opts.showDuration) {
+      opts.logger.log?.(`⏱️ 耗时: ${Date.now() - startTime}ms`);
+    }
+  };
 
   return {
     name: 'logger',
     version: '1.0.0',
 
-    /**
-     * 安装插件时打印日志
-     */
     install() {
       opts.logger.log?.('[Logger] 插件已安装');
     },
 
-    /**
-     * 卸载插件时打印日志
-     */
     uninstall() {
       opts.logger.log?.('[Logger] 插件已卸载');
     },
 
     /**
-     * Action 执行前记录日志
-     * @param actionName - action 名称
-     * @param args - 参数数组
+     * Action 执行前：记录开始时间并打开控制台分组
      */
     beforeAction(actionName: string, args: unknown[]): void {
       if (!opts.logActions) return;
 
-      const startTime = Date.now();
-      startTimeStack.push(startTime);
+      startTimeStack.push(Date.now());
 
       opts.logger.group?.(`⚡ Action: ${actionName}`);
       opts.logger.log?.('参数:', args);
       if (opts.showDuration) {
-        opts.logger.log?.('开始时间:', new Date(startTime).toISOString());
+        opts.logger.log?.('开始时间:', new Date(Date.now()).toISOString());
       }
     },
 
     /**
-     * Action 执行成功后记录日志
-     * @param actionName - action 名称
-     * @param result - 执行结果
-     * @param args - 参数数组
+     * Action 执行成功：输出完成信息和耗时
      */
     afterAction(actionName: string, result: unknown, args: unknown[]): void {
       if (!opts.logActions) return;
 
-      const startTime = startTimeStack.pop();
-      const duration = startTime !== undefined ? Date.now() - startTime : undefined;
-
+      logDuration(startTimeStack);
       opts.logger.log?.('✅ 完成');
       opts.logger.log?.('⚡ Action:', actionName);
       opts.logger.log?.('参数:', args);
       opts.logger.log?.('返回值:', result);
-      if (opts.showDuration && duration !== undefined) {
-        opts.logger.log?.(`⏱️ 耗时: ${duration}ms`);
-      }
       opts.logger.groupEnd?.();
     },
 
     /**
-     * Action 执行出错时记录日志
-     * @param actionName - action 名称
-     * @param error - 错误对象
-     * @param args - 参数数组
+     * Action 执行失败：输出错误信息和耗时
      */
     onError(actionName: string, error: Error, args: unknown[]): void {
       if (!opts.logActions) return;
 
-      const startTime = startTimeStack.pop();
-      const duration = startTime !== undefined ? Date.now() - startTime : undefined;
-
+      logDuration(startTimeStack);
       opts.logger.group?.(`❌ Action 失败: ${actionName}`);
       opts.logger.error?.('错误:', error);
       opts.logger.log?.('参数:', args);
-      if (opts.showDuration && duration !== undefined) {
-        opts.logger.log?.(`⏱️ 耗时: ${duration}ms`);
-      }
       opts.logger.groupEnd?.();
     },
 
     /**
-     * 数据变更时记录日志
-     * @param path - 变更路径
-     * @param newValue - 新值
-     * @param oldValue - 旧值
+     * 数据变更：以控制台分组形式输出变更路径和新旧值
      */
     onDataChange(path: string[], newValue: unknown, oldValue: unknown): void {
       if (!opts.logDataChanges) return;

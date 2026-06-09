@@ -1,88 +1,99 @@
-/**
- * History 历史记录插件
- *
- * 提供 undo/redo 功能，基于 Immutable.js 的快照机制。
- * 自动记录每次数据变更，支持撤销、重做、清空和最大历史记录数限制。
- */
 import type { Plugin, Store } from '../core';
-import { is } from 'immutable';
+import { deepEqual } from '../utils';
 
-/**
- * 历史记录插件配置选项
- */
+/** 历史记录插件配置选项 */
 export interface HistoryOptions {
-  /** 最大历史记录数，默认 50 */
+  /** 最大历史记录数，超出后丢弃最早记录，默认 50 */
   maxHistorySize?: number;
 }
 
-/**
- * 历史记录 API 接口
- */
+/** 历史记录公开 API 接口 */
 interface HistoryAPI {
-  /** 检查是否可以撤销 */
+  /** 返回当前是否可以撤销 */
   readonly canUndo: () => boolean;
 
-  /** 检查是否可以重做 */
+  /** 返回当前是否可以重做 */
   readonly canRedo: () => boolean;
 
-  /** 执行撤销操作 */
+  /**
+   * 执行一步撤销
+   * @returns 是否成功撤销
+   */
   readonly undo: () => boolean;
 
-  /** 执行重做操作 */
+  /**
+   * 执行一步重做
+   * @returns 是否成功重做
+   */
   readonly redo: () => boolean;
 
-  /** 清空历史记录 */
+  /**
+   * 清空全部历史记录，以当前状态作为新起点
+   */
   readonly clear: () => void;
 
-  /** 获取历史记录信息 */
+  /** 获取历史栈信息 */
   readonly getInfo: () => {
+    /** 历史栈当前大小 */
     stackSize: number;
+    /** 当前位置索引 */
     currentIndex: number;
+    /** 是否可撤销 */
     canUndo: boolean;
+    /** 是否可重做 */
     canRedo: boolean;
   };
 }
 
 declare module '../core' {
   interface Store {
-    /** 历史记录 API，由 History 插件在安装时注入 */
     history?: HistoryAPI;
   }
 }
 
 /**
- * 历史记录插件 提供 undo/redo 功能，基于 Immutable.js 的快照机制
- * @param options - 插件配置选项
+ * 创建历史记录插件
+ *
+ * 安装后会将 `history` API 挂载到 `store.history`，
+ * 并注册 `history.undo`、`history.redo`、`history.clear` 三个 action。
+ *
+ * @param options - 插件配置
  * @returns 插件实例
  */
 export const History = (options: HistoryOptions = {}): Plugin<Store> => {
   const { maxHistorySize = 50 } = options;
 
+  /** 历史快照栈 */
   let historyStack: unknown[] = [];
+
   /** 当前所在的历史栈索引 */
   let currentIndex = 0;
-  /** 标记是否暂停历史记录（撤销/重做/导入时避免产生新记录） */
+
+  /** 暂停记录标志（撤销/重做/导入时避免产生新快照） */
   let recordDisabled = false;
+
   /** Store 实例引用 */
   let storeInstance: Store | null = null;
 
   /**
-   * 推送新状态到历史栈
-   * @param newSnapshot - 新的状态快照
+   * 推送新快照到历史栈
+   *
+   * 若与当前快照引用相同则跳过；
+   * 若已有相同内容的快照则跳转到对应位置；
+   * 若当前不在栈顶则截断后续历史。
    */
   const pushState = (newSnapshot: unknown) => {
     if (recordDisabled || !storeInstance) return;
 
     const currentSnapshot = historyStack[currentIndex];
-    if (is(currentSnapshot, newSnapshot)) return;
+    if (currentSnapshot === newSnapshot) return;
 
-    const existingIndex = historyStack.findIndex((s) => is(s, newSnapshot));
+    const existingIndex = historyStack.findIndex((s) => deepEqual(s, newSnapshot));
     if (existingIndex !== -1) {
       currentIndex = existingIndex;
       return;
     }
 
-    // 如果当前不在栈顶，删除后面的历史
     if (currentIndex < historyStack.length - 1) {
       historyStack = historyStack.slice(0, currentIndex + 1);
     }
@@ -90,7 +101,6 @@ export const History = (options: HistoryOptions = {}): Plugin<Store> => {
     historyStack.push(newSnapshot);
     currentIndex++;
 
-    // 限制历史长度
     if (historyStack.length > maxHistorySize) {
       const excess = historyStack.length - maxHistorySize;
       historyStack = historyStack.slice(excess);
@@ -99,8 +109,10 @@ export const History = (options: HistoryOptions = {}): Plugin<Store> => {
   };
 
   /**
-   * 应用指定索引的状态
-   * @param targetIndex - 目标状态索引
+   * 应用指定索引的快照到 Store
+   *
+   * 应用期间暂停记录，完成后恢复。
+   *
    * @returns 是否成功应用
    */
   const applyState = (targetIndex: number): boolean => {
@@ -110,9 +122,8 @@ export const History = (options: HistoryOptions = {}): Plugin<Store> => {
 
     const targetSnapshot = historyStack[targetIndex];
     const currentSnapshot = historyStack[currentIndex];
-    if (is(targetSnapshot, currentSnapshot)) return false;
+    if (deepEqual(targetSnapshot, currentSnapshot)) return false;
 
-    // 临时禁用记录，避免循环触发
     recordDisabled = true;
     try {
       storeInstance.data.set([], targetSnapshot);
@@ -123,11 +134,6 @@ export const History = (options: HistoryOptions = {}): Plugin<Store> => {
     }
   };
 
-  /**
-   * 创建历史记录 API
-   * @param store - Store 实例
-   * @returns 历史记录 API 对象
-   */
   const createHistoryAPI = (store: Store): HistoryAPI => ({
     canUndo: () => currentIndex > 0,
     canRedo: () => currentIndex < historyStack.length - 1,
@@ -158,8 +164,7 @@ export const History = (options: HistoryOptions = {}): Plugin<Store> => {
     version: '1.0.0',
 
     /**
-     * 安装插件
-     * 初始化历史栈并注册相关 actions
+     * 安装插件：初始化历史栈、注入 API、注册 actions
      */
     install(store: Store) {
       storeInstance = store;
@@ -173,7 +178,6 @@ export const History = (options: HistoryOptions = {}): Plugin<Store> => {
         store.history = createHistoryAPI(store);
       }
 
-      // 注册 undo action
       store.actions.register('history.undo', () => {
         if (store.history?.undo()) {
           return { success: true, action: 'undo' };
@@ -181,7 +185,6 @@ export const History = (options: HistoryOptions = {}): Plugin<Store> => {
         throw new Error('无法撤销：没有更早的历史记录');
       });
 
-      // 注册 redo action
       store.actions.register('history.redo', () => {
         if (store.history?.redo()) {
           return { success: true, action: 'redo' };
@@ -189,7 +192,6 @@ export const History = (options: HistoryOptions = {}): Plugin<Store> => {
         throw new Error('无法重做：没有更新的历史记录');
       });
 
-      // 注册 clear action
       store.actions.register('history.clear', () => {
         store.history?.clear();
         return { success: true, action: 'clear' };
@@ -197,19 +199,22 @@ export const History = (options: HistoryOptions = {}): Plugin<Store> => {
     },
 
     /**
-     * 卸载插件
-     * 清理所有注册的 actions 和内部状态
+     * 卸载插件：取消注册 actions、移除 API、清理内部状态
      */
     uninstall() {
       if (!storeInstance) return;
-      // 移除 actions
-      storeInstance.actions.unregister('history.undo');
-      storeInstance.actions.unregister('history.redo');
-      storeInstance.actions.unregister('history.clear');
+      try {
+        storeInstance.actions.unregister('history.undo');
+      } catch {}
+      try {
+        storeInstance.actions.unregister('history.redo');
+      } catch {}
+      try {
+        storeInstance.actions.unregister('history.clear');
+      } catch {}
 
       delete storeInstance.history;
 
-      // 清理内部状态
       historyStack = [];
       currentIndex = 0;
       recordDisabled = false;
@@ -217,7 +222,7 @@ export const History = (options: HistoryOptions = {}): Plugin<Store> => {
     },
 
     /**
-     * 数据变更时自动记录快照
+     * 数据变更时自动记录快照（recordDisabled 期间跳过）
      */
     onDataChange() {
       if (!storeInstance || recordDisabled) return;

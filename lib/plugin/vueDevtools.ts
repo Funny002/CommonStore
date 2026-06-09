@@ -1,38 +1,30 @@
-/**
- * Vue DevTools 集成插件
- *
- * 将 Store 集成到 Vue DevTools，提供 Inspector 状态面板和 Timeline 时间线。
- * 支持状态的树形浏览、在线编辑和 action 执行时间线追踪。
- *
- * 优先使用 setupDevtoolsPlugin（需传入 Vue app 实例），无 app 时降级到全局 Hook。
- */
 import { setupDevToolsPlugin, type PluginSetupFunction, type App, type PluginDescriptor } from '@vue/devtools-kit';
 import { nodeIdToPath, buildTree, buildStateItems } from './devtools-helpers';
 import type { Plugin, Store } from '../core';
 
+/** Vue DevTools 插件 API 类型 */
 type DevToolsAPI = Parameters<PluginSetupFunction>[0];
 
-/**
- * Vue DevTools 插件配置选项
- */
+/** Vue DevTools 插件配置选项 */
 export interface VueDevtoolsOptions {
-  /** Inspector 面板中显示的标签名，默认 'CommonStore' */
+  /** Inspector 面板标签，默认 'CommonStore' */
   inspectorLabel?: string;
-  /** Timeline 面板中显示的图层标签名，默认 'Actions' */
+
+  /** Timeline 面板标签，默认 'Actions' */
   timelineLabel?: string;
 }
 
-/** 插件描述符 ID */
 const PLUGIN_ID = 'dev.common-store';
-/** Inspector 面板标识符 */
+
 const INSPECTOR_ID = 'common-store';
-/** Timeline 图层标识符 */
+
 const TIMELINE_LAYER_ID = 'common-store:actions';
 
 /**
- * Vue DevTools 插件 — 将 Store 集成到 Vue DevTools，提供 Inspector 状态面板和 Timeline 时间线
- * @param app - Vue 3 应用实例（可选；无 app 时降级为 Hook 方式）
- * @param options - 插件配置选项
+ * 创建 Vue DevTools 集成插件
+ *
+ * @param app - Vue 应用实例（可选，不传则自动检测）
+ * @param options - 显示配置
  * @returns 插件实例
  */
 export const VueDevtools = (app?: App, options: VueDevtoolsOptions = {}): Plugin<Store> => {
@@ -45,28 +37,37 @@ export const VueDevtools = (app?: App, options: VueDevtoolsOptions = {}): Plugin
   let storeInstance: Store | null = null;
   let api: DevToolsAPI | null = null;
   let isSetup = false;
-  /** 抑制 Timeline 事件（编辑状态时） */
+
+  /** 控制 Timeline 事件是否活跃（编辑状态时暂停避免循环） */
   let isTimelineActive = true;
-  /** Action 分组计数器 */
+
+  /** Action分组计数器，用于生成唯一 groupId */
   let actionGroupCounter = 0;
-  /** actionName → groupId 栈，用于 start/end 事件配对 */
+
+  /** Action 名称 → groupId 栈 映射（支持嵌套同名 action） */
   const groupIdStack = new Map<string, string[]>();
 
-  /** 获取指定路径的状态值 */
+  /**
+   * 从 Store 获取指定路径的值
+   */
   const getStateValueAt = (path: string[]): unknown => {
     if (!storeInstance) return undefined;
     if (path.length === 0) return storeInstance.getState();
     return storeInstance.getState(path);
   };
 
-  /** 刷新 Inspector 面板的树结构和状态显示 */
+  /**
+   * 刷新 Inspector 面板（发送 tree 和 state）
+   */
   const refreshInspector = () => {
     if (!api || !isSetup) return;
     api.sendInspectorTree(INSPECTOR_ID);
     api.sendInspectorState(INSPECTOR_ID);
   };
 
-  /** 入栈 groupId（LIFO） */
+  /**
+   * 为指定 action 创建新的 groupId 并入栈
+   */
   const pushGroupId = (actionName: string) => {
     actionGroupCounter++;
     const groupId = `${actionName}-${actionGroupCounter}`;
@@ -79,14 +80,22 @@ export const VueDevtools = (app?: App, options: VueDevtoolsOptions = {}): Plugin
     return groupId;
   };
 
-  /** 出栈 groupId（LIFO），按 action 名称匹配 */
+  /**
+   * 从 action 对应的 groupId 栈中弹出最后一个
+   */
   const popGroupId = (actionName: string): string | null => {
     const stack = groupIdStack.get(actionName);
     if (!stack || stack.length === 0) return null;
     return stack.pop()!;
   };
 
-  /** 向 Timeline 发送事件 */
+  /**
+   * 向 Timeline 发送事件
+   *
+   * @param actionName - Action 名称
+   * @param type - 事件类型：start / end / error
+   * @param extras - 附加数据（参数、结果、错误）
+   */
   const sendTimelineEvent = (actionName: string, type: 'start' | 'end' | 'error', extras?: { result?: unknown; args?: unknown[]; error?: Error }) => {
     if (!api || !isSetup || !isTimelineActive) return;
 
@@ -134,7 +143,9 @@ export const VueDevtools = (app?: App, options: VueDevtoolsOptions = {}): Plugin
     });
   };
 
-  /** 初始化 DevTools 面板和事件监听 */
+  /**
+   * 向 Vue DevTools 注册 Inspector、Timeline 及相关事件处理器
+   */
   const setupDevtools = (devtoolsApi: DevToolsAPI, appRef: App | null) => {
     api = devtoolsApi;
 
@@ -161,6 +172,7 @@ export const VueDevtools = (app?: App, options: VueDevtoolsOptions = {}): Plugin
       color: 0x4fc08d,
     });
 
+    // 构建状态树
     api.on.getInspectorTree((payload) => {
       if (payload.inspectorId !== INSPECTOR_ID) return;
       if (appRef && payload.app !== appRef) return;
@@ -170,6 +182,7 @@ export const VueDevtools = (app?: App, options: VueDevtoolsOptions = {}): Plugin
       }
     });
 
+    // 获取选中节点的状态
     api.on.getInspectorState((payload) => {
       if (payload.inspectorId !== INSPECTOR_ID) return;
       if (appRef && payload.app !== appRef) return;
@@ -182,6 +195,7 @@ export const VueDevtools = (app?: App, options: VueDevtoolsOptions = {}): Plugin
       }
     });
 
+    // 在 Inspector 中编辑状态值
     api.on.editInspectorState((payload) => {
       if (payload.inspectorId !== INSPECTOR_ID || !storeInstance) return;
       if (appRef && payload.app !== appRef) return;
@@ -202,10 +216,12 @@ export const VueDevtools = (app?: App, options: VueDevtoolsOptions = {}): Plugin
       refreshInspector();
     });
 
+    // Timeline 事件检查
     api.on.inspectTimelineEvent((payload) => {
       if (payload.layerId !== TIMELINE_LAYER_ID) return;
     });
 
+    // Timeline 清空时重置计数器
     api.on.timelineCleared(() => {
       actionGroupCounter = 0;
       groupIdStack.clear();
@@ -215,7 +231,13 @@ export const VueDevtools = (app?: App, options: VueDevtoolsOptions = {}): Plugin
     refreshInspector();
   };
 
-  /** 从 Vue DevTools 全局 Hook 获取 DevTools API（降级路径） */
+  /**
+   * 从 Vue DevTools global hook 异步获取 DevTools API
+   *
+   * 超时 3 秒后返回 null。
+   *
+   * @returns DevTools API 或 null
+   */
   const getDevtoolsFromHook = (): Promise<DevToolsAPI | null> => {
     return new Promise((resolve) => {
       const g = globalThis as unknown as { __VUE_DEVTOOLS_GLOBAL_HOOK__?: any };
@@ -243,6 +265,12 @@ export const VueDevtools = (app?: App, options: VueDevtoolsOptions = {}): Plugin
     name: 'vue-devtools',
     version: '1.0.0',
 
+    /**
+     * 安装插件：注册到 Vue DevTools
+     *
+     * 有 app 实例时通过 setupDevToolsPlugin 注册；
+     * 无 app 时从 global hook 异步获取 API。
+     */
     install(store: Store) {
       storeInstance = store;
 
@@ -269,6 +297,12 @@ export const VueDevtools = (app?: App, options: VueDevtoolsOptions = {}): Plugin
       }
     },
 
+    /**
+     * 卸载插件：清理所有 DevTools 注册和内部状态
+     *
+     * 注意：@vue/devtools-kit 当前不提供 removeInspector /
+     * removeTimelineLayer API，卸载后 DevTools UI 可能残留注册项。
+     */
     uninstall() {
       isSetup = false;
       isTimelineActive = true;
@@ -278,22 +312,34 @@ export const VueDevtools = (app?: App, options: VueDevtoolsOptions = {}): Plugin
       groupIdStack.clear();
     },
 
+    /**
+     * Action 开始前发送 Timeline start 事件
+     */
     beforeAction(actionName: string, args: unknown[]) {
       if (!api || !isSetup) return;
       sendTimelineEvent(actionName, 'start', { args });
     },
 
+    /**
+     * Action 完成后发送 Timeline end 事件并刷新 Inspector
+     */
     afterAction(actionName: string, result: unknown) {
       if (!api || !isSetup || !storeInstance) return;
       sendTimelineEvent(actionName, 'end', { result });
       refreshInspector();
     },
 
+    /**
+     * Action 出错时发送 Timeline error 事件
+     */
     onError(actionName: string, error: Error) {
       if (!api || !isSetup) return;
       sendTimelineEvent(actionName, 'error', { error });
     },
 
+    /**
+     * 数据变更时刷新 Inspector 面板
+     */
     onDataChange() {
       if (!api || !isSetup) return;
       refreshInspector();
