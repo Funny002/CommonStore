@@ -33,7 +33,7 @@ Utils.isEmpty([1]);           // false
 
 | 函数 | 说明 |
 |------|------|
-| `randomChars()` | 随机返回一个 `[A-Za-z0-9]` 字符 |
+| `randomChar()` | 随机返回一个 `[A-Za-z0-9]` 字符 |
 | `randomString(long)` | 生成指定长度随机字符串 |
 | `generateId(format?, prefix?)` | 生成格式化 ID |
 

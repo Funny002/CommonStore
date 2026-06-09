@@ -151,10 +151,13 @@ describe("对象工具函数", () => {
       expect(isEmpty([1, 2, 3])).toBe(false);
     });
 
+    it("应该对 null 和 undefined 返回true", () => {
+      expect(isEmpty(null)).toBe(true);
+      expect(isEmpty(undefined)).toBe(true);
+    });
+
     it("应该对其他类型返回false", () => {
       expect(isEmpty(123)).toBe(false);
-      expect(isEmpty(null)).toBe(false);
-      expect(isEmpty(undefined)).toBe(false);
     });
   });
 });

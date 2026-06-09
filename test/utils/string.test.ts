@@ -1,25 +1,25 @@
 import { describe, it, expect } from "vitest";
 import { Utils } from "../../lib";
 
-const { randomChars, randomString, generateId } = Utils;
+const { randomChar, randomString, generateId } = Utils;
 
 describe("字符串工具函数", () => {
-  describe("randomChars", () => {
+  describe("randomChar", () => {
     it("应该返回单个字符", () => {
-      const char = randomChars();
+      const char = randomChar();
       expect(typeof char).toBe("string");
       expect(char.length).toBe(1);
     });
 
     it("应该返回字母或数字", () => {
-      const char = randomChars();
+      const char = randomChar();
       expect(/[A-Za-z0-9]/.test(char)).toBe(true);
     });
 
     it("多次调用应该可能返回不同的字符", () => {
       const chars = new Set();
       for (let i = 0; i < 100; i++) {
-        chars.add(randomChars());
+        chars.add(randomChar());
       }
       // 由于是随机的，100次调用很可能产生多个不同字符
       expect(chars.size).toBeGreaterThan(1);
@@ -28,7 +28,7 @@ describe("字符串工具函数", () => {
     it("返回的字符应该在有效字符集中", () => {
       const validChars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
       for (let i = 0; i < 50; i++) {
-        const char = randomChars();
+        const char = randomChar();
         expect(validChars).toContain(char);
       }
     });
@@ -71,6 +71,14 @@ describe("字符串工具函数", () => {
       const str = randomString(1);
       expect(str.length).toBe(1);
       expect(/[A-Za-z0-9]/.test(str)).toBe(true);
+    });
+
+    it("负数长度应该抛出错误", () => {
+      expect(() => randomString(-1)).toThrow("randomString: length must be >= 0");
+    });
+
+    it("超大长度应该抛出错误", () => {
+      expect(() => randomString(100_001)).toThrow("randomString: length must be <= 100000");
     });
   });
 
