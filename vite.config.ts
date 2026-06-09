@@ -17,9 +17,6 @@ export default defineConfig({
     },
     rollupOptions: {
       external: ['@vue/devtools-kit'],
-      output: {
-        globals: {},
-      },
     },
   },
 });

@@ -32,7 +32,6 @@
     "coverage": "vitest run --coverage",
     "test:run": "vitest run"
   },
-  "peerDependencies": {},
   "devDependencies": {
     "@types/node": "^25.9.1",
     "@vitest/coverage-v8": "^4.1.3",
