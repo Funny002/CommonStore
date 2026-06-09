@@ -84,7 +84,7 @@ export const Persist = (options: PersistOptions = {}): Plugin<Store> => {
 
   return {
     name: 'persist',
-    version: '1.0.0',
+    version: '1.1.0',
 
     /**
      * 安装插件：从 Storage 恢复状态并启动防抖写入

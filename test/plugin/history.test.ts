@@ -13,7 +13,7 @@ describe("History 历史记录插件", () => {
       const plugin = History();
 
       expect(plugin.name).toBe("history");
-      expect(plugin.version).toBe("1.0.0");
+      expect(plugin.version).toBe("1.1.0");
       expect(plugin.install).toBeDefined();
       expect(plugin.uninstall).toBeDefined();
       expect(plugin.onDataChange).toBeDefined();

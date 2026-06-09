@@ -161,7 +161,7 @@ export const History = (options: HistoryOptions = {}): Plugin<Store> => {
 
   return {
     name: 'history',
-    version: '1.0.0',
+    version: '1.1.0',
 
     /**
      * 安装插件：初始化历史栈、注入 API、注册 actions

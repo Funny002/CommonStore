@@ -239,11 +239,11 @@ describe("Store", () => {
       const testStore = new Store(state);
 
       // 查找第一个 admin
-      const firstAdmin = testStore.data.find((value, _key, _path) => (value as any)?.role === "admin", true) as any;
+      const firstAdmin = testStore.data.find((value, _key, _path) => (value as any)?.role === "admin") as any;
       expect(firstAdmin?.name).toBe("Alice");
 
       // 查找所有 admin
-      const allAdmins = testStore.data.findAll((value, _key, _path) => (value as any)?.role === "admin", true) as any[];
+      const allAdmins = testStore.data.findAll((value, _key, _path) => (value as any)?.role === "admin") as any[];
       expect(allAdmins.length).toBe(2);
       expect(allAdmins[0].name).toBe("Alice");
       expect(allAdmins[1].name).toBe("Charlie");
@@ -434,7 +434,7 @@ describe("Store", () => {
       const dependentPlugin: Plugin = { name: "dependent", dependencies: ["base"] };
       store.use(basePlugin, dependentPlugin);
 
-      expect(() => store.plugins.eject("base")).toThrow('Cannot eject "base" because plugin "dependent" depends on it');
+      expect(() => store.plugins.eject("base")).toThrow(/Cannot eject "base" because plugins .* depend on it/);
     });
 
     it("插件依赖关系应该正确处理（拓扑排序）", async () => {

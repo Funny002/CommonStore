@@ -5,7 +5,7 @@
     "declaration": true,
     "declarationDir": "./dist",
     "emitDeclarationOnly": true,
-    "declarationMap": true
+    "declarationMap": false
   },
   "include": ["lib"]
 }

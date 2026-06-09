@@ -191,7 +191,7 @@ export const ReduxDevtools = (options: ReduxDevtoolsOptions = {}): Plugin<Store>
 
   return {
     name: 'redux-devtools',
-    version: '1.0.0',
+    version: '1.1.0',
 
     /**
      * 安装插件：连接 DevTools Extension 并初始化

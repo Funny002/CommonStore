@@ -90,7 +90,7 @@ describe("VueDevtools 插件", () => {
     it("应该使用默认配置创建插件", () => {
       const plugin = VueDevtools();
       expect(plugin.name).toBe("vue-devtools");
-      expect(plugin.version).toBe("1.0.0");
+      expect(plugin.version).toBe("1.1.0");
       expect(plugin.install).toBeDefined();
       expect(plugin.uninstall).toBeDefined();
       expect(plugin.beforeAction).toBeDefined();

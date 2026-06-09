@@ -43,7 +43,7 @@ export const Logger = (options: LoggerOptions = {}): Plugin<Store> => {
 
   return {
     name: 'logger',
-    version: '1.0.0',
+    version: '1.1.0',
 
     install() {
       opts.logger.log?.('[Logger] 插件已安装');

@@ -1,12 +1,12 @@
 # Common Store
 
 <p>
-  <a href="https://www.npmjs.com/package/common-store"><img src="https://img.shields.io/badge/npm-v1.0.0-blue" alt="npm version"></a>
+  <a href="https://www.npmjs.com/package/common-store"><img src="https://img.shields.io/badge/npm-v1.1.0-blue" alt="npm version"></a>
   <img src="https://img.shields.io/badge/license-MIT-green" alt="license">
   <img src="https://img.shields.io/badge/TypeScript-5.9-3178C6" alt="TypeScript">
 </p>
 
-基于 Immutable.js 的状态管理库，通过 Data、Action、Plugin 三模块分离实现完整的状态管理器。
+基于 Immer 的不可变状态管理库，通过 Data、Action、Plugin 三模块分离实现完整的状态管理器。
 
 采用 **模块化 + 插件化** 架构：数据存储、逻辑处理、功能扩展各司其职，通过一致的插件接口实现 Logger、History undo/redo、Persist 持久化等功能的热插拔。
 
@@ -14,7 +14,7 @@
 
 | 特性              | 说明                                                                        |
 | ----------------- | --------------------------------------------------------------------------- |
-| **不可变数据**    | 基于 Immutable.js `Map` / `List`，引用比对零成本                            |
+| **不可变数据**    | 基于 Immer produce，自动冻结 + 结构共享                                  |
 | **插件架构**      | 6 个生命周期钩子拦截 action 执行与数据变更                                  |
 | **模块设计**      | Data / Action / Plugin 职责分离，可独立测试                                 |
 | **批量更新**      | `batch()` 合并多次变更为一次通知                                            |
@@ -22,7 +22,7 @@
 | **DevTools 集成** | Redux DevTools Extension（时间旅行） + Vue DevTools（Inspector + Timeline） |
 | **内置插件**      | Logger / History (undo/redo) / Persist / ReduxDevtools / VueDevtools        |
 | **类型安全**      | 完整 TypeScript 泛型，编译期捕获类型错误                                    |
-| **零外部依赖**    | 仅依赖 `immutable` 一个运行时包                                             |
+| **零外部依赖**    | 运行时依赖 `immer`，可选依赖 `@vue/devtools-kit`（Vue DevTools）         |
 
 ## 安装
 
@@ -68,7 +68,7 @@ store.use(VueDevtools({ inspectorLabel: "My Store" }));
 
 ### Data — 数据存储
 
-基于 Immutable.js 的不可变数据层，支持嵌套路径读写、深度合并、数组操作和批量更新。
+基于 Immer 的不可变数据层，支持嵌套路径读写、深度合并、数组操作和批量更新。
 
 ```typescript
 store.data.set("user.addresses[0].city", "Beijing");
@@ -136,6 +136,8 @@ store.use(pluginA, pluginB); // A 的钩子先于 B 执行
 - [Logger 插件](docs/plugins/logger.md) — Action 和数据变更日志
 - [History 插件](docs/plugins/history.md) — Undo/Redo
 - [Persist 插件](docs/plugins/persist.md) — 状态持久化
+- [Redux DevTools 插件](https://github.com/Funny002/CommonStore/blob/main/lib/plugin/reduxDevtools.ts) — 时间旅行调试
+- [Vue DevTools 插件](https://github.com/Funny002/CommonStore/blob/main/lib/plugin/vueDevtools.ts) — Inspector + Timeline
 
 
 ---

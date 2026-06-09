@@ -22,7 +22,7 @@ describe("Logger 日志插件", () => {
       const plugin = Logger();
 
       expect(plugin.name).toBe("logger");
-      expect(plugin.version).toBe("1.0.0");
+      expect(plugin.version).toBe("1.1.0");
       expect(plugin.beforeAction).toBeDefined();
       expect(plugin.afterAction).toBeDefined();
       expect(plugin.onError).toBeDefined();

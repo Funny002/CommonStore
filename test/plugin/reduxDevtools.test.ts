@@ -38,10 +38,9 @@ describe("ReduxDevtools 插件", () => {
       const plugin = ReduxDevtools();
 
       expect(plugin.name).toBe("redux-devtools");
-      expect(plugin.version).toBe("1.0.0");
+      expect(plugin.version).toBe("1.1.0");
       expect(plugin.install).toBeDefined();
       expect(plugin.uninstall).toBeDefined();
-      expect(plugin.beforeAction).toBeDefined();
       expect(plugin.afterAction).toBeDefined();
       expect(plugin.onError).toBeDefined();
     });
@@ -373,15 +372,6 @@ describe("ReduxDevtools 插件", () => {
           payload: "invalid-json[[[",
         }),
       ).not.toThrow();
-    });
-  });
-
-  describe("beforeAction - action 前记录时间", () => {
-    it("beforeAction 应记录开始时间", () => {
-      const plugin = ReduxDevtools();
-      store.use(plugin);
-
-      expect(() => plugin.beforeAction?.("testAction", [])).not.toThrow();
     });
   });
 

@@ -263,7 +263,7 @@ export const VueDevtools = (app?: App, options: VueDevtoolsOptions = {}): Plugin
 
   return {
     name: 'vue-devtools',
-    version: '1.0.0',
+    version: '1.1.0',
 
     /**
      * 安装插件：注册到 Vue DevTools
