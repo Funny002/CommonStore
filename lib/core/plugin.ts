@@ -1,99 +1,84 @@
-/**
- * Plugin 插件系统模块
- *
- * 提供插件接口定义和插件管理器。
- * 支持插件的注册、卸载、依赖管理和拓扑排序，通过 6 个生命周期钩子拦截 action 执行与数据变更。
- */
 import type { Store } from './store';
 
 /**
- * 插件接口定义
- * 插件可以拦截 action 执行、监听数据变更等
- * @template TStore - Store 类型，默认为 Store
+ * 插件接口
+ *
+ * 6 个生命周期钩子（均可选）：
+ * - `install` / `uninstall` — 安装与卸载
+ * - `beforeAction` / `afterAction` / `onError` — 拦截 action 执行
+ * - `onDataChange` — 监听数据变更
+ *
+ * @example
+ * const logger: Plugin = {
+ *   name: 'logger',
+ *   afterAction: (name, result) => console.log(name, result),
+ *   onDataChange: (path, nv) => console.log(path.join('.'), nv),
+ * };
  */
 export interface Plugin<TStore extends Store = Store> {
-  /** 插件名称，必须唯一 */
+  /** 唯一名称，用于依赖引用和卸载 */
   readonly name: string;
 
-  /** 插件版本号（可选） */
+  /** 版本号（可选） */
   version?: string;
 
-  /** 依赖的插件名称列表（可选） */
+  /** 依赖的插件名称列表（可选），安装时会按拓扑顺序先安装依赖 */
   dependencies?: string[];
 
-  /**
-   * 安装插件时调用
-   * @param store - Store 实例
-   */
+  /** 安装插件时调用 */
   install?(store: TStore): void;
 
-  /**
-   * 卸载插件时调用
-   */
+  /** 卸载插件时调用 */
   uninstall?(): void;
 
   /**
-   * Action 执行前调用，可以修改参数
-   * @param actionName - action 名称
-   * @param args - 参数数组
-   * @returns 修改后的参数数组，或 void
+   * action 执行前调用，可以修改参数
+   * @returns 修改后的参数数组，返回非数组时忽略
    */
   beforeAction?(actionName: string, args: unknown[]): unknown[] | void;
 
-  /**
-   * Action 执行成功后调用
-   * @param actionName - action 名称
-   * @param result - 执行结果
-   * @param args - 参数数组
-   */
+  /** action 执行成功后调用 */
   afterAction?(actionName: string, result: unknown, args: unknown[]): void;
 
-  /**
-   * Action 执行出错时调用
-   * @param actionName - action 名称
-   * @param error - 错误对象
-   * @param args - 参数数组
-   */
+  /** action 执行出错时调用 */
   onError?(actionName: string, error: Error, args: unknown[]): void;
 
-  /**
-   * 数据变更时调用
-   * @param path - 变更路径
-   * @param newValue - 新值
-   * @param oldValue - 旧值
-   */
+  /** 数据变更时调用 */
   onDataChange?(path: string[], newValue: unknown, oldValue: unknown): void;
 }
 
 /**
- * 插件管理器类
- * 负责插件的注册、卸载、依赖管理和钩子触发
- * @template TStore - Store 类型，默认为 Store
+ * 插件管理器
+ *
+ * 负责插件的注册、卸载、依赖管理和钩子触发。
+ * 单个插件钩子异常不影响其他插件，错误通过 console.error 输出。
  */
 export class PluginManager<TStore extends Store = Store> {
-  /** 已注册的插件映射表，按名称索引 */
   private readonly plugins = new Map<string, Plugin<TStore>>();
-  /** 关联的 Store 实例 */
   private readonly store: TStore;
 
-  /**
-   * 构造函数
-   * @param store - Store 实例引用
-   */
   constructor(store: TStore) {
     this.store = store;
   }
 
   /**
    * 注册一个或多个插件
-   * 会自动处理依赖关系和拓扑排序
-   * @param plugins - 要注册的插件数组
-   * @throws 如果插件已存在或依赖不满足
+   *
+   * 会自动进行拓扑排序，确保依赖插件先于依赖者安装。
+   *
+   * @throws 当插件已注册、缺少依赖、存在循环依赖时抛出
    */
   use(...plugins: Array<Plugin<TStore>>): void {
-    const newPlugins = plugins.filter((p) => !this.plugins.has(p.name));
-    if (newPlugins.length !== plugins.length) {
-      const duplicates = plugins.filter((p) => this.plugins.has(p.name)).map((p) => p.name);
+    const newPlugins: Array<Plugin<TStore>> = [];
+    const duplicates: string[] = [];
+    for (const p of plugins) {
+      if (this.plugins.has(p.name)) {
+        duplicates.push(p.name);
+      } else {
+        newPlugins.push(p);
+      }
+    }
+    if (duplicates.length > 0) {
       throw new Error(`Plugins already registered: ${duplicates.join(', ')}`);
     }
 
@@ -112,34 +97,31 @@ export class PluginManager<TStore extends Store = Store> {
 
   /**
    * 卸载指定插件
-   * 会检查是否有其他插件依赖它
-   * @param pluginName - 要卸载的插件名称
+   *
+   * 会检查依赖关系，若有其他插件依赖它则拒绝卸载。
+   * uninstall 钩子异常通过 console.error 输出，不影响插件移除。
+   *
    * @returns 是否成功卸载
-   * @throws 如果有其他插件依赖该插件
+   * @throws 当其他插件依赖它时抛出
    */
   eject(pluginName: string): boolean {
     const plugin = this.plugins.get(pluginName);
     if (!plugin) return false;
 
-    for (const p of this.plugins.values()) {
-      if (p.dependencies?.includes(pluginName)) {
-        throw new Error(`Cannot eject "${pluginName}" because plugin "${p.name}" depends on it.`);
-      }
-    }
-
+    this.checkDependents(pluginName);
     try {
       plugin.uninstall?.();
-    } finally {
-      this.plugins.delete(pluginName);
+    } catch (e) {
+      console.error(`[CommonStore] Plugin "${pluginName}" uninstall hook error:`, e);
     }
+    this.plugins.delete(pluginName);
     return true;
   }
 
   /**
-   * 卸载一个或多个插件
-   * 会检查是否有其他插件依赖它
-   * @param plugins - 要卸载的插件数组
-   * @throws 如果有其他插件依赖该插件
+   * 批量卸载插件
+   *
+   * 逐个调用 eject，遇到依赖冲突或不存在时抛出。
    */
   uninstall(...plugins: Array<Plugin<TStore>>): void {
     for (const plugin of plugins) {
@@ -148,27 +130,34 @@ export class PluginManager<TStore extends Store = Store> {
   }
 
   /**
-   * 获取所有已注册的插件列表
-   * @returns 只读插件数组
+   * 获取所有已注册插件（只读）
    */
   getPlugins(): ReadonlyArray<Plugin<TStore>> {
     return Array.from(this.plugins.values());
   }
 
+  // ── 钩子触发 ──
+
   /**
    * 触发所有插件的 beforeAction 钩子
-   * @param actionName - action 名称
-   * @param args - 原始参数
-   * @returns 可能被插件修改后的参数
+   *
+   * 插件可返回新参数数组来修改参数。
+   * 单个插件异常不影响后续插件，错误输出到 console.error。
+   *
+   * @returns 修改后的参数数组
    */
   triggerBeforeAction(actionName: string, args: unknown[]): unknown[] {
     let currentArgs = args;
     for (const plugin of this.plugins.values()) {
-      const modified = plugin.beforeAction?.(actionName, currentArgs);
-      if (Array.isArray(modified)) {
-        currentArgs = modified;
-      } else if (modified !== undefined) {
-        console.warn(`Plugin "${plugin.name}" beforeAction returned non-array value, ignored.`);
+      try {
+        const modified = plugin.beforeAction?.(actionName, currentArgs);
+        if (Array.isArray(modified)) {
+          currentArgs = modified;
+        } else if (modified !== undefined) {
+          console.warn(`[CommonStore] Plugin "${plugin.name}" beforeAction returned non-array value, ignored.`);
+        }
+      } catch (e) {
+        console.error(`[CommonStore] Plugin "${plugin.name}" beforeAction hook error:`, e);
       }
     }
     return currentArgs;
@@ -176,76 +165,69 @@ export class PluginManager<TStore extends Store = Store> {
 
   /**
    * 触发所有插件的 afterAction 钩子
-   * @param actionName - action 名称
-   * @param result - action 执行结果
-   * @param args - 参数数组
    */
   triggerAfterAction(actionName: string, result: unknown, args: unknown[]): void {
-    for (const plugin of this.plugins.values()) {
-      try {
-        plugin.afterAction?.(actionName, result, args);
-      } catch {
-        // 单个插件异常不影响其他插件
-      }
-    }
+    this.invokeHook('afterAction', (p) => p.afterAction?.(actionName, result, args));
   }
 
   /**
    * 触发所有插件的 onError 钩子
-   * @param actionName - action 名称
-   * @param error - 错误对象
-   * @param args - 参数数组
    */
   triggerErrorAction(actionName: string, error: Error, args: unknown[]): void {
-    for (const plugin of this.plugins.values()) {
-      try {
-        plugin.onError?.(actionName, error, args);
-      } catch {
-        // 单个插件异常不影响其他插件
-      }
-    }
+    this.invokeHook('onError', (p) => p.onError?.(actionName, error, args));
   }
 
   /**
    * 触发所有插件的 onDataChange 钩子
-   * @param path - 变更路径
-   * @param newValue - 新值
-   * @param oldValue - 旧值
    */
   triggerDataChange(path: string[], newValue: unknown, oldValue: unknown): void {
+    this.invokeHook('onDataChange', (p) => p.onDataChange?.(path, newValue, oldValue));
+  }
+
+  // ── 私有方法 ──
+
+  /**
+   * 遍历所有插件安全调用指定钩子，单个异常不影响其它插件
+   */
+  private invokeHook(hook: string, fn: (plugin: Plugin<TStore>) => void): void {
     for (const plugin of this.plugins.values()) {
       try {
-        plugin.onDataChange?.(path, newValue, oldValue);
-      } catch {
-        // 单个插件异常不影响其他插件和订阅通知
+        fn(plugin);
+      } catch (e) {
+        console.error(`[CommonStore] Plugin "${plugin.name}" ${hook} hook error:`, e);
       }
     }
   }
 
   /**
-   * 安装单个插件
-   * 会验证依赖并调用 install 方法
-   * @param plugin - 要安装的插件
-   * @throws 如果依赖不满足
+   * 检查是否有其他插件依赖指定插件
+   * @throws 当存在依赖者时抛出
    */
-  private installOne(plugin: Plugin<TStore>): void {
-    const deps = plugin.dependencies ?? [];
-    for (const depName of deps) {
-      if (!this.plugins.has(depName)) {
-        // 理论上拓扑排序已保证依赖存在，此处仅作防御
-        throw new Error(`Plugin "${plugin.name}" depends on "${depName}", which is not installed.`);
+  private checkDependents(pluginName: string): void {
+    const dependents: string[] = [];
+    for (const p of this.plugins.values()) {
+      if (p.dependencies?.includes(pluginName)) {
+        dependents.push(p.name);
       }
     }
+    if (dependents.length > 0) {
+      throw new Error(`Cannot eject "${pluginName}" because plugins [${dependents.join(', ')}] depend on it.`);
+    }
+  }
+
+  /**
+   * 安装单个插件：校验依赖后调用 install
+   * @throws 当依赖未安装时抛出
+   */
+  private installOne(plugin: Plugin<TStore>): void {
     plugin.install?.(this.store);
     this.plugins.set(plugin.name, plugin);
   }
 
   /**
-   * 对插件进行拓扑排序，确保依赖关系正确
-   * @param toSort - 待排序的插件数组
-   * @param allPlugins - 所有插件的 Map
+   * DFS 拓扑排序，确保依赖插件在依赖者之前安装
    * @returns 排序后的插件数组
-   * @throws 如果检测到循环依赖或缺少依赖
+   * @throws 检测到循环依赖或缺失依赖时抛出
    */
   private topologicalSort(toSort: Array<Plugin<TStore>>, allPlugins: Map<string, Plugin<TStore>>): Array<Plugin<TStore>> {
     const visited = new Set<string>();

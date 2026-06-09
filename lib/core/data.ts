@@ -1,72 +1,101 @@
-/**
- * Data 数据管理模块
- *
- * 基于 Immutable.js 的不可变数据层。
- * 支持嵌套路径读写、深度合并、数组操作、批量更新和树遍历查找。
- */
-import { List, Map, fromJS, is } from 'immutable';
+import { isObject, getIn } from '../utils';
+import { produce } from 'immer';
 
-/**
- * 数据路径类型，支持字符串数组或数字索引
- */
+/** 数据路径类型 — 支持字符串索引或数字索引 */
 export type DataPath = (string | number)[];
 
-/**
- * 数据变更回调函数类型
- * @param path - 变更的路径
- * @param newValue - 新值
- * @param oldValue - 旧值
- */
+/** 数据变更回调函数 */
 export type DataChangeCallback = (path: string[], newValue: unknown, oldValue: unknown) => void;
 
-/** Immutable.js Map 类型别名 */
-type ImmutableData = Map<string, unknown>;
+// ── 内部路径工具 ──
 
-/**
- * 规范化路径，将字符串路径转换为数组格式
- * @param path - 路径，可以是字符串（用.分隔）或数组
- * @returns 标准化后的路径数组
- */
+function isRootPath(path?: string | DataPath): boolean {
+  return path === undefined || path === null || path === '' || (Array.isArray(path) && path.length === 0);
+}
+
 function normalizePath(path: string | DataPath): DataPath {
   if (Array.isArray(path)) return path;
   const segments = path.split('.');
-  const filtered = segments.filter((segment) => segment.trim().length > 0);
-  if (filtered.length !== segments.length) {
+  if (segments.some((s) => s.trim().length === 0)) {
     throw new Error(`Invalid path "${path}": path contains empty segments.`);
   }
-  return filtered;
+  return segments;
 }
 
-/**
- * 将 Immutable 数据转换为普通 JavaScript 对象
- * @param value - 待转换的值
- * @returns 转换后的 JavaScript 值
- */
-function toJS<T>(value: unknown): T {
-  if (value && typeof (value as any).toJS === 'function') {
-    return (value as any).toJS();
+function walkDraft(draft: Record<string, unknown>, keys: (string | number)[], create: boolean): Record<string, unknown> | null {
+  let current: Record<string, unknown> = draft;
+  for (let i = 0; i < keys.length - 1; i++) {
+    const key = String(keys[i]);
+    let next = current[key];
+    if (next === undefined || next === null || typeof next !== 'object') {
+      if (!create) return null;
+      next = typeof keys[i + 1] === 'number' ? [] : {};
+      current[key] = next;
+    }
+    current = next as Record<string, unknown>;
   }
-  return value as T;
+  return current;
 }
 
-/**
- * 递归遍历 Immutable 数据结构
- * @param node - 当前节点
- * @param currentPath - 当前路径
- * @param visit - 访问函数，返回 true 时停止遍历
- * @returns 是否提前终止遍历
- */
+function setInDraft(draft: Record<string, unknown>, keys: (string | number)[], value: unknown): void {
+  if (keys.length === 0) {
+    Object.keys(draft).forEach((k) => delete draft[k]);
+    Object.assign(draft, value as Record<string, unknown>);
+    return;
+  }
+  walkDraft(draft, keys, true)![String(keys[keys.length - 1])] = value;
+}
+
+function delInDraft(draft: Record<string, unknown>, keys: (string | number)[]): void {
+  if (keys.length === 0) {
+    Object.keys(draft).forEach((k) => delete draft[k]);
+    return;
+  }
+  const leaf = walkDraft(draft, keys, false);
+  if (leaf) delete leaf[String(keys[keys.length - 1])];
+}
+
+function hasIn(obj: unknown, keys: (string | number)[]): boolean {
+  let current = obj;
+  for (const key of keys) {
+    if (current === null || current === undefined) return false;
+    if (typeof key === 'number' && Array.isArray(current)) {
+      if (key < 0 || key >= (current as unknown[]).length) return false;
+      current = (current as unknown[])[key];
+    } else if (typeof current === 'object') {
+      if (!Object.prototype.hasOwnProperty.call(current, String(key))) return false;
+      current = (current as Record<string, unknown>)[String(key)];
+    } else {
+      return false;
+    }
+  }
+  return true;
+}
+
+function deepMergeObj(target: Record<string, unknown>, source: Record<string, unknown>): Record<string, unknown> {
+  const result = { ...target };
+  for (const key of Object.keys(source)) {
+    const sv = source[key];
+    const tv = target[key];
+    if (isObject(sv) && isObject(tv)) {
+      result[key] = deepMergeObj(tv as Record<string, unknown>, sv as Record<string, unknown>);
+    } else {
+      result[key] = sv;
+    }
+  }
+  return result;
+}
+
 function traverse(node: unknown, currentPath: string[], visit: (value: unknown, key: string, path: string[]) => boolean): boolean {
-  if (Map.isMap(node)) {
-    for (const [key, value] of (node as Map<string, unknown>).entries()) {
+  if (isObject(node)) {
+    for (const [key, value] of Object.entries(node)) {
       const path = currentPath.concat(key);
       if (visit(value, key, path)) return true;
       if (traverse(value, path, visit)) return true;
     }
-  } else if (List.isList(node)) {
-    const list = node as List<unknown>;
-    for (let idx = 0; idx < list.size; idx++) {
-      const value = list.get(idx);
+  } else if (Array.isArray(node)) {
+    for (let idx = 0; idx < node.length; idx++) {
+      const value = node[idx];
       const path = currentPath.concat(String(idx));
       if (visit(value, String(idx), path)) return true;
       if (traverse(value, path, visit)) return true;
@@ -75,69 +104,68 @@ function traverse(node: unknown, currentPath: string[], visit: (value: unknown, 
   return false;
 }
 
+// ── DataManager ──
+
 /**
- * 数据管理器类
- * 基于 Immutable.js 提供不可变数据操作和变更通知
+ * 数据管理器
+ *
+ * 基于 Immer 的不可变状态树，提供路径级 CRUD、数组操作、
+ * 批量更新、树遍历查找和重置功能。
+ *
+ * @example
+ * const dm = new DataManager({ count: 0 }, (path, nv) => console.log(path, nv));
+ * dm.set('user.name', 'Alice');
+ * dm.push('items', 42);
+ * const val = dm.get<number>('count');
  */
 export class DataManager {
-  /** 当前状态数据（Immutable Map） */
-  private state: ImmutableData;
-  /** 初始状态快照，用于 reset() 恢复 */
-  private readonly initialState: ImmutableData;
-  /** 数据变更回调函数 */
+  private state: Record<string, unknown>;
+  private readonly initialState: Record<string, unknown>;
   private readonly onChange: DataChangeCallback;
-  /** 批量操作嵌套深度计数，大于 0 时暂不通知 */
   private batchDepth = 0;
 
   /**
-   * 构造函数
-   * @param initialState - 初始状态数据
-   * @param onChange - 数据变更回调函数
+   * @param initialState - 初始状态数据，默认 {}
+   * @param onChange - 数据变更时的回调
    */
   constructor(initialState: unknown = {}, onChange: DataChangeCallback) {
-    this.initialState = fromJS(initialState) as ImmutableData;
+    this.initialState = produce(initialState ?? {}, () => {}) as Record<string, unknown>;
     this.state = this.initialState;
     this.onChange = onChange;
   }
 
+  // ── 读取 ──
+
   /**
-   * 获取指定路径的数据（转换为普通 JS 对象）
-   * @param path - 数据路径，不传则返回整个状态树
-   * @returns 指定路径的数据值
+   * 获取指定路径的数据
+   * @param path - 路径，不传返回整个状态树
    */
   get<T = unknown>(path?: string | DataPath): T | undefined {
-    if (path === undefined || path === '' || (Array.isArray(path) && path.length === 0)) return toJS<T>(this.state);
-    const keys = normalizePath(path);
-    const value = this.state.getIn(keys);
-    return value !== undefined ? toJS<T>(value) : undefined;
+    if (isRootPath(path)) return this.state as T;
+    const keys = normalizePath(path as string | DataPath);
+    return getIn(this.state, keys) as T | undefined;
   }
 
   /**
-   * 获取指定路径的原始 Immutable 数据
-   * @param path - 数据路径，不传则返回整个状态树
-   * @returns 原始 Immutable 数据
+   * 获取指定路径的原始数据（不经过任何转换）
+   * @param path - 路径，不传返回整个状态树
    */
   getRaw(path?: string | DataPath): unknown {
-    if (path === undefined || path === null || path === '' || (Array.isArray(path) && path.length === 0)) return this.state;
-    const keys = normalizePath(path);
-    return this.state.getIn(keys);
+    return this.get(path);
   }
 
   /**
    * 检查指定路径是否存在
-   * @param path - 数据路径
-   * @returns 路径是否存在
    */
   has(path: string | DataPath): boolean {
-    if (!path) return true;
-    const keys = normalizePath(path);
-    return this.state.hasIn(keys);
+    if (isRootPath(path)) return true;
+    return hasIn(this.state, normalizePath(path));
   }
+
+  // ── 写操作 ──
 
   /**
    * 设置指定路径的值
-   * @param path - 数据路径
-   * @param value - 要设置的值
    * @returns 当前实例，支持链式调用
    */
   set(path: string | DataPath, value: unknown): this {
@@ -146,217 +174,177 @@ export class DataManager {
 
   /**
    * 删除指定路径的数据
-   * @param path - 数据路径
    * @returns 是否成功删除
    */
   delete(path: string | DataPath): boolean {
     const keys = normalizePath(path);
-    if (!this.state.hasIn(keys)) return false;
-    const oldValue = this.state.getIn(keys);
-    this.state = this.state.deleteIn(keys);
-    this.notify(keys, undefined, oldValue);
+    if (!hasIn(this.state, keys)) return false;
+    const oldValue = getIn(this.state, keys);
+    this.state = produce(this.state, (draft) => {
+      delInDraft(draft as Record<string, unknown>, keys);
+    });
+    this.notify(keys, oldValue);
     return true;
   }
 
   /**
-   * 更新指定路径的值
-   * @param path - 数据路径
-   * @param updater - 更新函数，接收旧值返回新值
-   * @returns 当前实例，支持链式调用
+   * 基于旧值更新指定路径
+   * @param updater - 接收旧值，返回新值
+   * @returns 当前实例
    */
   update(path: string | DataPath, updater: (old: unknown) => unknown): this {
     const keys = normalizePath(path);
-    const oldValue = this.state.getIn(keys);
-    const newValue = updater(toJS(oldValue));
-    return this.setInternal(keys, newValue);
+    return this.setInternal(keys, updater(getIn(this.state, keys)));
   }
 
   /**
-   * 合并指定路径的对象数据（深度合并）
-   * @param path - 数据路径
+   * 深度合并对象到指定路径
    * @param value - 要合并的对象
-   * @returns 当前实例，支持链式调用
+   * @returns 当前实例
    */
   merge(path: string | DataPath, value: Record<string, unknown>): this {
     const keys = normalizePath(path);
-    const existing = this.state.getIn(keys);
-    const toMerge = fromJS(value) as ImmutableData;
-    let newState: ImmutableData;
-    if (Map.isMap(existing)) {
-      newState = this.state.setIn(keys, existing.mergeDeep(toMerge));
-    } else {
-      newState = this.state.setIn(keys, toMerge);
-    }
-    if (is(newState, this.state)) return this;
-    const oldValue = this.state.getIn(keys);
-    this.state = newState;
-    this.notify(keys, this.state.getIn(keys), oldValue);
-    return this;
+    const existing = getIn(this.state, keys);
+    const merged = isObject(existing) ? deepMergeObj(existing as Record<string, unknown>, value) : value;
+    return this.setInternal(keys, merged);
   }
 
+  // ── 数组操作 ──
+
   /**
-   * 向指定路径的数组末尾添加元素
-   * @param path - 数据路径
-   * @param value - 要添加的值
-   * @returns 当前实例，支持链式调用
+   * 向数组末尾追加元素，路径不存在时自动创建空数组
+   * @throws 当目标不是数组时抛出 TypeError
    */
   push(path: string | DataPath, value: unknown): this {
-    const keys = normalizePath(path);
-    const existing = this.state.getIn(keys);
-    if (existing !== undefined && !List.isList(existing)) {
-      throw new TypeError(`Cannot push to a non-array value at "${keys.join('.')}"`);
-    }
-    const newList = List.isList(existing) ? (existing as List<unknown>).push(fromJS(value)) : List([fromJS(value)]);
-    this.state = this.state.setIn(keys, newList);
-    this.notify(keys, newList, existing);
-    return this;
+    return this.arrayMutate(path, (arr) => [...arr, value]);
   }
 
   /**
-   * 从指定路径的数组末尾移除并返回最后一个元素
-   * @param path - 数据路径
-   * @returns 被移除的元素，如果数组为空则返回 undefined
+   * 移除并返回数组最后一个元素
+   * @returns 被移除的元素，数组为空或非数组时返回 undefined
    */
   pop(path: string | DataPath): unknown {
-    const keys = normalizePath(path);
-    const existing = this.state.getIn(keys);
-    if (!List.isList(existing) || existing.size === 0) {
-      return undefined;
-    }
-    const last = existing.last();
-    const newList = existing.pop();
-    this.state = this.state.setIn(keys, newList);
-    this.notify(keys, newList, existing);
-    return toJS(last);
+    return this.arrayExtract(path, (arr) => ({
+      newArr: arr.slice(0, -1),
+      result: arr[arr.length - 1],
+    }));
   }
 
   /**
-   * 向指定路径的数组头部添加元素
-   * @param path - 数据路径
-   * @param value - 要添加的值
-   * @returns 当前实例，支持链式调用
+   * 向数组头部插入元素，路径不存在时自动创建空数组
+   * @throws 当目标不是数组时抛出 TypeError
    */
   unshift(path: string | DataPath, value: unknown): this {
-    const keys = normalizePath(path);
-    const existing = this.state.getIn(keys);
-    if (existing !== undefined && !List.isList(existing)) {
-      throw new TypeError(`Cannot unshift to a non-array value at "${keys.join('.')}"`);
-    }
-    const newList = List.isList(existing) ? (existing as List<unknown>).unshift(fromJS(value)) : List([fromJS(value)]);
-    this.state = this.state.setIn(keys, newList);
-    this.notify(keys, newList, existing);
-    return this;
+    return this.arrayMutate(path, (arr) => [value, ...arr]);
   }
 
   /**
-   * 从指定路径的数组头部移除并返回第一个元素
-   * @param path - 数据路径
-   * @returns 被移除的元素，如果数组为空则返回 undefined
+   * 移除并返回数组第一个元素
+   * @returns 被移除的元素，数组为空或非数组时返回 undefined
    */
   shift(path: string | DataPath): unknown {
-    const keys = normalizePath(path);
-    const existing = this.state.getIn(keys);
-    if (!List.isList(existing) || existing.size === 0) return undefined;
-    const first = existing.first();
-    const newList = existing.shift();
-    this.state = this.state.setIn(keys, newList);
-    this.notify(keys, newList, existing);
-    return toJS(first);
+    return this.arrayExtract(path, (arr) => ({
+      newArr: arr.slice(1),
+      result: arr[0],
+    }));
   }
 
   /**
-   * 向指定路径的数组指定索引插入元素
-   * @param path - 数据路径
-   * @param index - 插入位置的索引
-   * @param value - 要插入的值
-   * @returns 当前实例，支持链式调用
+   * 在数组指定索引处插入元素，路径不存在时自动创建空数组
+   * @throws 当目标不是数组时抛出 TypeError
    */
   insert(path: string | DataPath, index: number, value: unknown): this {
-    const keys = normalizePath(path);
-    const existing = this.state.getIn(keys);
-    if (existing !== undefined && !List.isList(existing)) {
-      throw new TypeError(`Cannot insert into a non-array value at "${keys.join('.')}"`);
-    }
-    const newList = List.isList(existing) ? (existing as List<unknown>).insert(index, fromJS(value)) : List([fromJS(value)]);
-    this.state = this.state.setIn(keys, newList);
-    this.notify(keys, newList, existing);
-    return this;
+    return this.arrayMutate(path, (arr) => [...arr.slice(0, index), value, ...arr.slice(index)]);
   }
 
   /**
-   * 从指定路径的数组中移除指定索引的元素
-   * @param path - 数据路径
-   * @param index - 要移除元素的索引
-   * @returns 被移除的元素，如果索引无效则返回 undefined
+   * 移除并返回数组指定索引的元素
+   * @returns 被移除的元素，索引无效或非数组时返回 undefined
    */
   remove(path: string | DataPath, index: number): unknown {
-    const keys = normalizePath(path);
-    const existing = this.state.getIn(keys);
-    if (!List.isList(existing) || index < 0 || index >= existing.size) return undefined;
-    const removed = existing.get(index);
-    const newList = existing.remove(index);
-    this.state = this.state.setIn(keys, newList);
-    this.notify(keys, newList, existing);
-    return toJS(removed);
+    return this.arrayExtract(path, (arr) => {
+      if (index < 0 || index >= arr.length) return { newArr: arr, result: undefined };
+      return {
+        newArr: [...arr.slice(0, index), ...arr.slice(index + 1)],
+        result: arr[index],
+      };
+    });
   }
+
+  // ── 批量 / 重置 / 清理 ──
 
   /**
    * 重置状态到初始值
-   * @param keepPaths - 可选，要保留的路径列表（这些路径的值不会被重置）
-   * @returns 当前实例，支持链式调用
+   * @param keepPaths - 可选，重置时保留的路径列表
+   * @returns 当前实例
    */
   reset(keepPaths?: string[]): this {
     const oldState = this.state;
-    if (keepPaths && keepPaths.length > 0) {
-      const keepValues: Array<{ keys: DataPath; value: unknown }> = [];
-      for (const p of keepPaths) {
-        const keys = normalizePath(p);
-        if (this.state.hasIn(keys)) {
-          keepValues.push({ keys, value: this.state.getIn(keys) });
+    if (keepPaths?.length) {
+      this.state = produce(this.initialState, (draft) => {
+        for (const p of keepPaths) {
+          const keys = normalizePath(p);
+          if (hasIn(oldState, keys)) {
+            setInDraft(draft as Record<string, unknown>, keys, getIn(oldState, keys));
+          }
         }
-      }
-      this.state = this.initialState;
-      for (const { keys, value } of keepValues) {
-        this.state = this.state.setIn(keys, value) as ImmutableData;
-      }
+      });
     } else {
       this.state = this.initialState;
     }
-    this.notify([], this.state, oldState);
+    this.notify([], oldState);
     return this;
   }
 
   /**
-   * 批量执行多个数据变更，所有变更结束后只触发一次通知
-   * @param fn - 批量变更函数
-   * @returns 当前实例，支持链式调用
+   * 批量执行多个数据变更，仅触发一次通知
+   *
+   * 支持嵌套 batch 调用，仅最外层结束时触发通知。
+   *
+   * @param fn - 包含变更操作的函数
+   * @returns fn 的返回值
+   *
+   * @example
+   * const result = dm.batch(() => {
+   *   dm.set('a', 1);
+   *   dm.set('b', 2);
+   *   return dm.get('b');
+   * });
    */
-  batch(fn: () => void): this {
+  batch<T>(fn: () => T): T {
     const oldState = this.state;
     this.batchDepth++;
     try {
-      fn();
+      return fn();
     } finally {
       this.batchDepth--;
-      if (this.batchDepth === 0 && !is(oldState, this.state)) {
-        this.notify([], this.state, oldState);
+      if (this.batchDepth === 0 && this.state !== oldState) {
+        this.notify([], oldState);
       }
     }
-    return this;
   }
 
   /**
-   * 查找第一个符合条件的节点
-   * @param predicate - 判断函数，接收值、键和路径
-   * @param convertToJs - 是否将 Immutable 数据转换为普通 JS 对象
-   * @returns 找到的第一个匹配值，未找到返回 null
+   * 清空所有状态数据
    */
-  find(predicate: (value: unknown, key: string, path: string[]) => boolean, convertToJs = false): unknown {
+  clear(): void {
+    const oldState = this.state;
+    this.state = produce({}, () => {}) as Record<string, unknown>;
+    this.notify([], oldState);
+  }
+
+  // ── 遍历查找 ──
+
+  /**
+   * 查找第一个满足条件的节点
+   * @param predicate - 判断函数，接收 (value, key, path)
+   * @returns 匹配的值，未找到返回 null
+   */
+  find(predicate: (value: unknown, key: string, path: string[]) => boolean): unknown {
     let result: unknown = null;
     traverse(this.state, [], (value, key, path) => {
-      const testValue = convertToJs ? toJS(value) : value;
-      if (predicate(testValue, key, path)) {
-        result = testValue;
+      if (predicate(value, key, path)) {
+        result = value;
         return true;
       }
       return false;
@@ -365,60 +353,74 @@ export class DataManager {
   }
 
   /**
-   * 查找所有符合条件的节点
-   * @param predicate - 判断函数，接收值、键和路径
-   * @param convertToJs - 是否将 Immutable 数据转换为普通 JS 对象
+   * 查找所有满足条件的节点
+   * @param predicate - 判断函数，接收 (value, key, path)
    * @returns 所有匹配值的数组
    */
-  findAll(predicate: (value: unknown, key: string, path: string[]) => boolean, convertToJs = false): unknown[] {
+  findAll(predicate: (value: unknown, key: string, path: string[]) => boolean): unknown[] {
     const results: unknown[] = [];
     traverse(this.state, [], (value, key, path) => {
-      const testValue = convertToJs ? toJS(value) : value;
-      if (predicate(testValue, key, path)) {
-        results.push(testValue);
-      }
+      if (predicate(value, key, path)) results.push(value);
       return false;
     });
     return results;
   }
 
-  /**
-   * 清空所有数据
-   */
-  clear(): void {
-    const oldState = this.state;
-    this.state = fromJS({}) as ImmutableData;
-    this.notify([], this.state, oldState);
-  }
+  // ── 私有方法 ──
 
   /**
-   * 内部设置方法，支持可选的通知控制
-   * @param keys - 路径数组
-   * @param value - 要设置的值
-   * @param notify - 是否触发变更通知，默认为 true
-   * @returns 当前实例，支持链式调用
+   * 数组写操作统一入口：不存在时自动创建空数组，存在非数组时抛出
    */
-  private setInternal(keys: DataPath, value: unknown, notify = true): this {
-    const oldValue = this.state.getIn(keys);
-    const newImmutable = fromJS(value);
-    if (is(oldValue, newImmutable)) return this;
-
-    this.state = this.state.setIn(keys, newImmutable);
-    if (notify) {
-      this.notify(keys, newImmutable, oldValue);
+  private arrayMutate(path: string | DataPath, fn: (arr: unknown[]) => unknown[]): this {
+    const keys = normalizePath(path);
+    const existing = getIn(this.state, keys);
+    if (existing !== undefined && !Array.isArray(existing)) {
+      throw new TypeError(`Cannot perform array operation on a non-array value at "${keys.join('.')}"`);
     }
+    const arr = Array.isArray(existing) ? (existing as unknown[]) : [];
+    this.state = produce(this.state, (draft) => {
+      setInDraft(draft as Record<string, unknown>, keys, fn(arr));
+    });
+    this.notify(keys, existing);
     return this;
   }
 
   /**
-   * 触发数据变更通知
-   * @param keys - 变更的路径数组
-   * @param newValue - 新值
-   * @param oldValue - 旧值
+   * 数组读写操作统一入口：返回操作结果，无效时返回 undefined
    */
-  private notify(keys: DataPath, newValue: unknown, oldValue: unknown): void {
+  private arrayExtract(path: string | DataPath, fn: (arr: unknown[]) => { newArr: unknown[]; result: unknown }): unknown {
+    const keys = normalizePath(path);
+    const existing = getIn(this.state, keys);
+    if (!Array.isArray(existing) || (existing as unknown[]).length === 0) return undefined;
+    const arr = existing as unknown[];
+    const { newArr, result } = fn(arr);
+    if (newArr === arr) return result;
+    this.state = produce(this.state, (draft) => {
+      setInDraft(draft as Record<string, unknown>, keys, newArr);
+    });
+    this.notify(keys, existing);
+    return result;
+  }
+
+  /**
+   * 内部路径设值，比较后决定是否触发通知
+   */
+  private setInternal(keys: DataPath, value: unknown): this {
+    const oldValue = getIn(this.state, keys);
+    const newState = produce(this.state, (draft) => {
+      setInDraft(draft as Record<string, unknown>, keys, value);
+    });
+    if (newState === this.state) return this;
+    this.state = newState;
+    this.notify(keys, oldValue);
+    return this;
+  }
+
+  /**
+   * 触发变更通知（批量模式下延迟）
+   */
+  private notify(keys: DataPath, oldValue: unknown): void {
     if (this.batchDepth > 0) return;
-    const pathStrings = keys.map(String);
-    this.onChange(pathStrings, newValue !== undefined ? toJS(newValue) : undefined, oldValue !== undefined ? toJS(oldValue) : undefined);
+    this.onChange(keys.map(String), getIn(this.state, keys), oldValue);
   }
 }
