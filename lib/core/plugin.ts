@@ -4,7 +4,7 @@
  * 提供插件接口定义和插件管理器。
  * 支持插件的注册、卸载、依赖管理和拓扑排序，通过 6 个生命周期钩子拦截 action 执行与数据变更。
  */
-import type { Store } from "./store";
+import type { Store } from './store';
 
 /**
  * 插件接口定义
@@ -94,7 +94,7 @@ export class PluginManager<TStore extends Store = Store> {
     const newPlugins = plugins.filter((p) => !this.plugins.has(p.name));
     if (newPlugins.length !== plugins.length) {
       const duplicates = plugins.filter((p) => this.plugins.has(p.name)).map((p) => p.name);
-      throw new Error(`Plugins already registered: ${duplicates.join(", ")}`);
+      throw new Error(`Plugins already registered: ${duplicates.join(', ')}`);
     }
 
     const allPlugins = new Map<string, Plugin<TStore>>(this.plugins);

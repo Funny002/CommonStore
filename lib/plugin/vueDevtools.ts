@@ -6,14 +6,9 @@
  *
  * 优先使用 setupDevtoolsPlugin（需传入 Vue app 实例），无 app 时降级到全局 Hook。
  */
-import {
-  setupDevToolsPlugin,
-  type PluginSetupFunction,
-  type App,
-  type PluginDescriptor,
-} from "@vue/devtools-kit";
-import type { Plugin, Store } from "../core";
-import { nodeIdToPath, buildTree, buildStateItems } from "./devtools-helpers";
+import { setupDevToolsPlugin, type PluginSetupFunction, type App, type PluginDescriptor } from '@vue/devtools-kit';
+import { nodeIdToPath, buildTree, buildStateItems } from './devtools-helpers';
+import type { Plugin, Store } from '../core';
 
 type DevToolsAPI = Parameters<PluginSetupFunction>[0];
 
@@ -28,11 +23,11 @@ export interface VueDevtoolsOptions {
 }
 
 /** 插件描述符 ID */
-const PLUGIN_ID = "dev.common-store";
+const PLUGIN_ID = 'dev.common-store';
 /** Inspector 面板标识符 */
-const INSPECTOR_ID = "common-store";
+const INSPECTOR_ID = 'common-store';
 /** Timeline 图层标识符 */
-const TIMELINE_LAYER_ID = "common-store:actions";
+const TIMELINE_LAYER_ID = 'common-store:actions';
 
 /**
  * Vue DevTools 插件 — 将 Store 集成到 Vue DevTools，提供 Inspector 状态面板和 Timeline 时间线
@@ -42,8 +37,8 @@ const TIMELINE_LAYER_ID = "common-store:actions";
  */
 export const VueDevtools = (app?: App, options: VueDevtoolsOptions = {}): Plugin<Store> => {
   const opts = {
-    inspectorLabel: "CommonStore",
-    timelineLabel: "Actions",
+    inspectorLabel: 'CommonStore',
+    timelineLabel: 'Actions',
     ...options,
   } satisfies { inspectorLabel: string; timelineLabel: string };
 
@@ -92,17 +87,13 @@ export const VueDevtools = (app?: App, options: VueDevtoolsOptions = {}): Plugin
   };
 
   /** 向 Timeline 发送事件 */
-  const sendTimelineEvent = (
-    actionName: string,
-    type: "start" | "end" | "error",
-    extras?: { result?: unknown; args?: unknown[]; error?: Error },
-  ) => {
+  const sendTimelineEvent = (actionName: string, type: 'start' | 'end' | 'error', extras?: { result?: unknown; args?: unknown[]; error?: Error }) => {
     if (!api || !isSetup || !isTimelineActive) return;
 
     const now = api.now();
     let groupId: string | null = null;
 
-    if (type === "start") {
+    if (type === 'start') {
       groupId = pushGroupId(actionName);
     } else {
       groupId = popGroupId(actionName);
@@ -118,17 +109,17 @@ export const VueDevtools = (app?: App, options: VueDevtoolsOptions = {}): Plugin
 
     const data: Record<string, unknown> = {};
     if (extras?.args) {
-      data.args = extras.args.map((a) => (typeof a === "object" ? JSON.stringify(a) : String(a)));
+      data.args = extras.args.map((a) => (typeof a === 'object' ? JSON.stringify(a) : String(a)));
     }
-    if (type === "end" && extras?.result !== undefined) {
-      data.result = typeof extras.result === "object" ? JSON.stringify(extras.result) : String(extras.result);
+    if (type === 'end' && extras?.result !== undefined) {
+      data.result = typeof extras.result === 'object' ? JSON.stringify(extras.result) : String(extras.result);
     }
-    if (type === "error" && extras?.error) {
+    if (type === 'error' && extras?.error) {
       data.error = extras.error.message;
     }
     event.data = data;
 
-    const logType = type === "error" ? "error" : "default";
+    const logType = type === 'error' ? 'error' : 'default';
 
     api.addTimelineEvent({
       layerId: TIMELINE_LAYER_ID,
@@ -150,13 +141,13 @@ export const VueDevtools = (app?: App, options: VueDevtoolsOptions = {}): Plugin
     api.addInspector({
       id: INSPECTOR_ID,
       label: opts.inspectorLabel,
-      icon: "storage",
-      treeFilterPlaceholder: "Search state...",
-      stateFilterPlaceholder: "Filter...",
+      icon: 'storage',
+      treeFilterPlaceholder: 'Search state...',
+      stateFilterPlaceholder: 'Filter...',
       actions: [
         {
-          icon: "refresh",
-          tooltip: "Force refresh inspector",
+          icon: 'refresh',
+          tooltip: 'Force refresh inspector',
           action: () => {
             refreshInspector();
           },
@@ -174,7 +165,7 @@ export const VueDevtools = (app?: App, options: VueDevtoolsOptions = {}): Plugin
       if (payload.inspectorId !== INSPECTOR_ID) return;
       if (appRef && payload.app !== appRef) return;
       const state = storeInstance?.getState();
-      if (state && typeof state === "object") {
+      if (state && typeof state === 'object') {
         payload.rootNodes = buildTree(state as Record<string, unknown>, payload.filter || undefined);
       }
     });
@@ -184,7 +175,7 @@ export const VueDevtools = (app?: App, options: VueDevtoolsOptions = {}): Plugin
       if (appRef && payload.app !== appRef) return;
       const path = nodeIdToPath(payload.nodeId);
       const value = getStateValueAt(path);
-      if (value !== null && typeof value === "object" && !Array.isArray(value)) {
+      if (value !== null && typeof value === 'object' && !Array.isArray(value)) {
         payload.state = {
           state: buildStateItems(value as Record<string, unknown>),
         };
@@ -238,10 +229,10 @@ export const VueDevtools = (app?: App, options: VueDevtoolsOptions = {}): Plugin
         clearTimeout(timeout);
         resolve(devtoolsApi);
       };
-      if (typeof hook.once === "function") {
-        hook.once("init", handler);
-      } else if (typeof hook.on === "function") {
-        hook.on("init", handler);
+      if (typeof hook.once === 'function') {
+        hook.once('init', handler);
+      } else if (typeof hook.on === 'function') {
+        hook.on('init', handler);
       } else {
         resolve(null);
       }
@@ -249,8 +240,8 @@ export const VueDevtools = (app?: App, options: VueDevtoolsOptions = {}): Plugin
   };
 
   return {
-    name: "vue-devtools",
-    version: "1.0.0",
+    name: 'vue-devtools',
+    version: '1.0.0',
 
     install(store: Store) {
       storeInstance = store;
@@ -260,8 +251,8 @@ export const VueDevtools = (app?: App, options: VueDevtoolsOptions = {}): Plugin
           id: PLUGIN_ID,
           label: opts.inspectorLabel,
           app,
-          packageName: "common-store",
-          homepage: "https://github.com/Funny002/CommonStore",
+          packageName: 'common-store',
+          homepage: 'https://github.com/Funny002/CommonStore',
           enableEarlyProxy: true,
         };
         setupDevToolsPlugin(descriptor, (devtoolsApi) => {
@@ -289,18 +280,18 @@ export const VueDevtools = (app?: App, options: VueDevtoolsOptions = {}): Plugin
 
     beforeAction(actionName: string, args: unknown[]) {
       if (!api || !isSetup) return;
-      sendTimelineEvent(actionName, "start", { args });
+      sendTimelineEvent(actionName, 'start', { args });
     },
 
     afterAction(actionName: string, result: unknown) {
       if (!api || !isSetup || !storeInstance) return;
-      sendTimelineEvent(actionName, "end", { result });
+      sendTimelineEvent(actionName, 'end', { result });
       refreshInspector();
     },
 
     onError(actionName: string, error: Error) {
       if (!api || !isSetup) return;
-      sendTimelineEvent(actionName, "error", { error });
+      sendTimelineEvent(actionName, 'error', { error });
     },
 
     onDataChange() {

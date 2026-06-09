@@ -4,7 +4,7 @@
  * 提供 Action 的注册、注销、查询和执行功能。
  * Action 执行时自动触发插件的 beforeAction / afterAction / onError 钩子。
  */
-import type { Store } from "./store";
+import type { Store } from './store';
 
 /**
  * Action 处理器类型定义
@@ -90,8 +90,8 @@ export class ActionManager {
   async dispatch<TArgs extends any[], TReturn>(name: string, ...args: TArgs): Promise<TReturn> {
     const handler = this.actions.get(name);
     if (!handler) {
-      const available = this.getActionNames().join(", ");
-      throw new Error(`Action "${name}" not found. Available actions: ${available || "(none)"}`);
+      const available = this.getActionNames().join(', ');
+      throw new Error(`Action "${name}" not found. Available actions: ${available || '(none)'}`);
     }
     // 触发 beforeAction 钩子，允许插件修改参数
     const processedArgs = this.store.plugins.triggerBeforeAction(name, args);

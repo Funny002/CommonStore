@@ -4,8 +4,8 @@
  * 将 Store 状态自动保存到 Storage（默认 localStorage）并在初始化时恢复。
  * 支持白名单路径过滤、自定义序列化/反序列化和防抖保存。
  */
-import type { Plugin, Store } from "../core";
-import { debounce } from "../utils";
+import type { Plugin, Store } from '../core';
+import { debounce } from '../utils';
 
 /**
  * 持久化插件配置选项
@@ -27,7 +27,7 @@ export interface PersistOptions {
 
 /** 插件默认配置 */
 const defaultOptions = {
-  key: "common-store",
+  key: 'common-store',
   paths: [] as string[],
   serializer: JSON.stringify,
   deserializer: JSON.parse,
@@ -40,7 +40,7 @@ const defaultOptions = {
  * @returns 插件实例
  */
 export const Persist = (options: PersistOptions = {}): Plugin<Store> => {
-  const resolvedStorage = options.storage ?? (typeof window !== "undefined" ? window.localStorage : null);
+  const resolvedStorage = options.storage ?? (typeof window !== 'undefined' ? window.localStorage : null);
   const opts = {
     ...defaultOptions,
     ...options,
@@ -75,8 +75,8 @@ export const Persist = (options: PersistOptions = {}): Plugin<Store> => {
   };
 
   return {
-    name: "persist",
-    version: "1.0.0",
+    name: 'persist',
+    version: '1.0.0',
 
     /**
      * 安装插件 — 从存储恢复状态并启动防抖保存

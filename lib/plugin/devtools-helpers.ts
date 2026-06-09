@@ -3,7 +3,7 @@
  *
  * 从 vueDevtools.ts 提取的树构建和格式化工具函数，用于 Inspector 面板。
  */
-import type { CustomInspectorNode } from "@vue/devtools-kit";
+import type { CustomInspectorNode } from '@vue/devtools-kit';
 
 /** 各类型值的标签颜色配置 */
 const TAG_COLORS: Record<string, { textColor: number; backgroundColor: number }> = {
@@ -21,38 +21,38 @@ export function getTypeTag(value: unknown): { textColor: number; backgroundColor
   if (value === null) return TAG_COLORS.null;
   if (Array.isArray(value)) return TAG_COLORS.array;
   const t = typeof value;
-  if (t === "object") return TAG_COLORS.object;
-  if (t === "string") return TAG_COLORS.string;
-  if (t === "number") return TAG_COLORS.number;
-  if (t === "boolean") return TAG_COLORS.boolean;
-  if (t === "function") return TAG_COLORS.function;
+  if (t === 'object') return TAG_COLORS.object;
+  if (t === 'string') return TAG_COLORS.string;
+  if (t === 'number') return TAG_COLORS.number;
+  if (t === 'boolean') return TAG_COLORS.boolean;
+  if (t === 'function') return TAG_COLORS.function;
   return undefined;
 }
 
 /** 将状态路径数组转换为 Inspector 节点 ID */
 export function pathToNodeId(path: string[]): string {
-  return path.length === 0 ? "__root__" : path.join(".");
+  return path.length === 0 ? '__root__' : path.join('.');
 }
 
 /** 将 Inspector 节点 ID 转换回状态路径数组 */
 export function nodeIdToPath(nodeId: string): string[] {
-  if (nodeId === "__root__") return [];
-  return nodeId.split(".");
+  if (nodeId === '__root__') return [];
+  return nodeId.split('.');
 }
 
 /** 格式化状态值用于 Inspector 显示，超过 30 字符的字符串会截断 */
 export function formatValue(value: unknown): string {
-  if (value === null) return "null";
-  if (value === undefined) return "undefined";
-  if (typeof value === "string") {
+  if (value === null) return 'null';
+  if (value === undefined) return 'undefined';
+  if (typeof value === 'string') {
     return value.length > 30 ? `"${value.slice(0, 30)}..."` : `"${value}"`;
   }
-  if (typeof value === "function") return "function";
-  if (typeof value === "object") {
+  if (typeof value === 'function') return 'function';
+  if (typeof value === 'object') {
     if (Array.isArray(value)) return `Array(${value.length})`;
     return `{ ${Object.keys(value as object)
       .slice(0, 3)
-      .join(", ")}${Object.keys(value as object).length > 3 ? ", ..." : ""} }`;
+      .join(', ')}${Object.keys(value as object).length > 3 ? ', ...' : ''} }`;
   }
   return String(value);
 }
@@ -72,7 +72,7 @@ function buildArrayChildren(arr: unknown[], basePath: string[], filter?: string)
         const typeLabel = getTypeLabel(item);
         itemNode.tags = [{ label: typeLabel, ...itemTag }];
       }
-      if (item !== null && typeof item === "object" && !Array.isArray(item)) {
+      if (item !== null && typeof item === 'object' && !Array.isArray(item)) {
         itemNode.children = buildTree(item as Record<string, unknown>, undefined, itemPath);
       }
       return itemNode;
@@ -82,7 +82,7 @@ function buildArrayChildren(arr: unknown[], basePath: string[], filter?: string)
 
 /** 为对象递归构建子节点（用于过滤时递归匹配不匹配的节点） */
 function buildChildrenNodes(value: unknown, basePath: string[], filter: string): CustomInspectorNode[] {
-  if (value !== null && typeof value === "object" && !Array.isArray(value)) {
+  if (value !== null && typeof value === 'object' && !Array.isArray(value)) {
     return buildTree(value as Record<string, unknown>, filter, basePath);
   }
   if (Array.isArray(value)) {
@@ -93,8 +93,8 @@ function buildChildrenNodes(value: unknown, basePath: string[], filter: string):
 
 /** 获取值的类型标签文字（正确区分 null 与 object） */
 function getTypeLabel(value: unknown): string {
-  if (value === null) return "null";
-  return typeof value === "object" ? (Array.isArray(value) ? "array" : "object") : typeof value;
+  if (value === null) return 'null';
+  return typeof value === 'object' ? (Array.isArray(value) ? 'array' : 'object') : typeof value;
 }
 export function buildTree(state: Record<string, unknown>, filter?: string, basePath: string[] = []): CustomInspectorNode[] {
   const nodes: CustomInspectorNode[] = [];
@@ -133,7 +133,7 @@ export function buildTree(state: Record<string, unknown>, filter?: string, baseP
       node.tags = [{ label: typeLabel, ...tag }];
     }
 
-    if (value !== null && typeof value === "object" && !Array.isArray(value)) {
+    if (value !== null && typeof value === 'object' && !Array.isArray(value)) {
       node.children = buildTree(value as Record<string, unknown>, undefined, nodePath);
     } else if (Array.isArray(value)) {
       node.children = buildArrayChildren(value as unknown[], nodePath, undefined);

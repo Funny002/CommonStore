@@ -3,5 +3,5 @@
  *
  * 导出 Store 类和 Plugin 接口类型
  */
-export type { Plugin } from "./plugin";
-export { Store } from "./store";
+export type { Plugin } from './plugin';
+export { Store } from './store';

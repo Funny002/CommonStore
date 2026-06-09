@@ -4,7 +4,7 @@
  * 基于 Immutable.js 的不可变数据层。
  * 支持嵌套路径读写、深度合并、数组操作、批量更新和树遍历查找。
  */
-import { List, Map, fromJS, is } from "immutable";
+import { List, Map, fromJS, is } from 'immutable';
 
 /**
  * 数据路径类型，支持字符串数组或数字索引
@@ -29,7 +29,7 @@ type ImmutableData = Map<string, unknown>;
  */
 function normalizePath(path: string | DataPath): DataPath {
   if (Array.isArray(path)) return path;
-  const segments = path.split(".");
+  const segments = path.split('.');
   const filtered = segments.filter((segment) => segment.trim().length > 0);
   if (filtered.length !== segments.length) {
     throw new Error(`Invalid path "${path}": path contains empty segments.`);
@@ -43,7 +43,7 @@ function normalizePath(path: string | DataPath): DataPath {
  * @returns 转换后的 JavaScript 值
  */
 function toJS<T>(value: unknown): T {
-  if (value && typeof (value as any).toJS === "function") {
+  if (value && typeof (value as any).toJS === 'function') {
     return (value as any).toJS();
   }
   return value as T;
@@ -118,7 +118,7 @@ export class DataManager {
    * @returns 原始 Immutable 数据
    */
   getRaw(path?: string | DataPath): unknown {
-    if (path === undefined || path === null || path === "" || (Array.isArray(path) && path.length === 0)) return this.state;
+    if (path === undefined || path === null || path === '' || (Array.isArray(path) && path.length === 0)) return this.state;
     const keys = normalizePath(path);
     return this.state.getIn(keys);
   }

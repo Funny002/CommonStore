@@ -4,8 +4,8 @@
  * 提供 undo/redo 功能，基于 Immutable.js 的快照机制。
  * 自动记录每次数据变更，支持撤销、重做、清空和最大历史记录数限制。
  */
-import type { Plugin, Store } from "../core";
-import { is } from "immutable";
+import type { Plugin, Store } from '../core';
+import { is } from 'immutable';
 
 /**
  * 历史记录插件配置选项
@@ -43,7 +43,7 @@ interface HistoryAPI {
   };
 }
 
-declare module "../core" {
+declare module '../core' {
   interface Store {
     /** 历史记录 API，由 History 插件在安装时注入 */
     history?: HistoryAPI;
@@ -154,8 +154,8 @@ export const History = (options: HistoryOptions = {}): Plugin<Store> => {
   });
 
   return {
-    name: "history",
-    version: "1.0.0",
+    name: 'history',
+    version: '1.0.0',
 
     /**
      * 安装插件
@@ -174,25 +174,25 @@ export const History = (options: HistoryOptions = {}): Plugin<Store> => {
       }
 
       // 注册 undo action
-      store.actions.register("history.undo", () => {
+      store.actions.register('history.undo', () => {
         if (store.history?.undo()) {
-          return { success: true, action: "undo" };
+          return { success: true, action: 'undo' };
         }
-        throw new Error("无法撤销：没有更早的历史记录");
+        throw new Error('无法撤销：没有更早的历史记录');
       });
 
       // 注册 redo action
-      store.actions.register("history.redo", () => {
+      store.actions.register('history.redo', () => {
         if (store.history?.redo()) {
-          return { success: true, action: "redo" };
+          return { success: true, action: 'redo' };
         }
-        throw new Error("无法重做：没有更新的历史记录");
+        throw new Error('无法重做：没有更新的历史记录');
       });
 
       // 注册 clear action
-      store.actions.register("history.clear", () => {
+      store.actions.register('history.clear', () => {
         store.history?.clear();
-        return { success: true, action: "clear" };
+        return { success: true, action: 'clear' };
       });
     },
 
@@ -203,9 +203,9 @@ export const History = (options: HistoryOptions = {}): Plugin<Store> => {
     uninstall() {
       if (!storeInstance) return;
       // 移除 actions
-      storeInstance.actions.unregister("history.undo");
-      storeInstance.actions.unregister("history.redo");
-      storeInstance.actions.unregister("history.clear");
+      storeInstance.actions.unregister('history.undo');
+      storeInstance.actions.unregister('history.redo');
+      storeInstance.actions.unregister('history.clear');
 
       delete storeInstance.history;
 
