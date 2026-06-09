@@ -83,4 +83,11 @@ export class EventListener {
   clear() {
     this._listener.clear();
   }
+
+  /**
+   * 获取所有已注册的事件名称（供子类内部使用）
+   */
+  protected _eventNames(): string[] {
+    return Array.from(this._listener.keys());
+  }
 }

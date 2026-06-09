@@ -167,6 +167,8 @@ export class PluginManager<TStore extends Store = Store> {
       const modified = plugin.beforeAction?.(actionName, currentArgs);
       if (Array.isArray(modified)) {
         currentArgs = modified;
+      } else if (modified !== undefined) {
+        console.warn(`Plugin "${plugin.name}" beforeAction returned non-array value, ignored.`);
       }
     }
     return currentArgs;
@@ -180,7 +182,11 @@ export class PluginManager<TStore extends Store = Store> {
    */
   triggerAfterAction(actionName: string, result: unknown, args: unknown[]): void {
     for (const plugin of this.plugins.values()) {
-      plugin.afterAction?.(actionName, result, args);
+      try {
+        plugin.afterAction?.(actionName, result, args);
+      } catch {
+        // 单个插件异常不影响其他插件
+      }
     }
   }
 
@@ -192,7 +198,11 @@ export class PluginManager<TStore extends Store = Store> {
    */
   triggerErrorAction(actionName: string, error: Error, args: unknown[]): void {
     for (const plugin of this.plugins.values()) {
-      plugin.onError?.(actionName, error, args);
+      try {
+        plugin.onError?.(actionName, error, args);
+      } catch {
+        // 单个插件异常不影响其他插件
+      }
     }
   }
 
@@ -204,7 +214,11 @@ export class PluginManager<TStore extends Store = Store> {
    */
   triggerDataChange(path: string[], newValue: unknown, oldValue: unknown): void {
     for (const plugin of this.plugins.values()) {
-      plugin.onDataChange?.(path, newValue, oldValue);
+      try {
+        plugin.onDataChange?.(path, newValue, oldValue);
+      } catch {
+        // 单个插件异常不影响其他插件和订阅通知
+      }
     }
   }
 

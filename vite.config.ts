@@ -10,6 +10,7 @@ export default defineConfig({
       entry: {
         index: resolve(__dirname, "lib/index.ts"),
         "vue-devtools": resolve(__dirname, "lib/vue-devtools.ts"),
+        "redux-devtools": resolve(__dirname, "lib/redux-devtools.ts"),
       },
       name: "CommonStore",
       formats: ["es", "cjs"],

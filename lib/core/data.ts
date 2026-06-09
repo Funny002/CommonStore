@@ -106,7 +106,7 @@ export class DataManager {
    * @returns 指定路径的数据值
    */
   get<T = unknown>(path?: string | DataPath): T | undefined {
-    if (!path) return toJS<T>(this.state);
+    if (path === undefined || path === '' || (Array.isArray(path) && path.length === 0)) return toJS<T>(this.state);
     const keys = normalizePath(path);
     const value = this.state.getIn(keys);
     return value !== undefined ? toJS<T>(value) : undefined;
@@ -203,10 +203,12 @@ export class DataManager {
   push(path: string | DataPath, value: unknown): this {
     const keys = normalizePath(path);
     const existing = this.state.getIn(keys);
+    if (existing !== undefined && !List.isList(existing)) {
+      throw new TypeError(`Cannot push to a non-array value at "${keys.join('.')}"`);
+    }
     const newList = List.isList(existing) ? (existing as List<unknown>).push(fromJS(value)) : List([fromJS(value)]);
-    const oldValue = this.state.getIn(keys);
     this.state = this.state.setIn(keys, newList);
-    this.notify(keys, newList, oldValue);
+    this.notify(keys, newList, existing);
     return this;
   }
 
@@ -237,10 +239,12 @@ export class DataManager {
   unshift(path: string | DataPath, value: unknown): this {
     const keys = normalizePath(path);
     const existing = this.state.getIn(keys);
+    if (existing !== undefined && !List.isList(existing)) {
+      throw new TypeError(`Cannot unshift to a non-array value at "${keys.join('.')}"`);
+    }
     const newList = List.isList(existing) ? (existing as List<unknown>).unshift(fromJS(value)) : List([fromJS(value)]);
-    const oldValue = this.state.getIn(keys);
     this.state = this.state.setIn(keys, newList);
-    this.notify(keys, newList, oldValue);
+    this.notify(keys, newList, existing);
     return this;
   }
 
@@ -270,10 +274,12 @@ export class DataManager {
   insert(path: string | DataPath, index: number, value: unknown): this {
     const keys = normalizePath(path);
     const existing = this.state.getIn(keys);
+    if (existing !== undefined && !List.isList(existing)) {
+      throw new TypeError(`Cannot insert into a non-array value at "${keys.join('.')}"`);
+    }
     const newList = List.isList(existing) ? (existing as List<unknown>).insert(index, fromJS(value)) : List([fromJS(value)]);
-    const oldValue = this.state.getIn(keys);
     this.state = this.state.setIn(keys, newList);
-    this.notify(keys, newList, oldValue);
+    this.notify(keys, newList, existing);
     return this;
   }
 
@@ -309,7 +315,7 @@ export class DataManager {
           keepValues.push({ keys, value: this.state.getIn(keys) });
         }
       }
-      this.state = this.initialState.mergeDeep(fromJS({})) as ImmutableData;
+      this.state = this.initialState;
       for (const { keys, value } of keepValues) {
         this.state = this.state.setIn(keys, value) as ImmutableData;
       }

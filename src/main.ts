@@ -1,5 +1,6 @@
-import { Store, Logger, History, Persist, ReduxDevtools } from "../lib";
+import { Store, Logger, History, Persist } from "../lib";
 import { VueDevtools } from "../lib/vue-devtools";
+import { ReduxDevtools } from "../lib/redux-devtools";
 import { initialState } from "./demoData";
 import { registerDemoActions } from "./demoActions";
 import { setStore, qs, logEntries, addLog, addSubNotification, managedSubscriptions } from "./shared";

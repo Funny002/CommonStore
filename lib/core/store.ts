@@ -25,6 +25,8 @@ export class Store extends EventListener {
   private readonly _plugins: PluginManager;
   /** 初始状态，用于 reset() 恢复 */
   private readonly _initialState: unknown;
+  /** 正在 emit 中的订阅路径集合（防止订阅回调中同步修改自身路径导致无限递归） */
+  private readonly _emitting = new Set<string>();
 
   /**
    * 获取数据管理器实例
@@ -58,8 +60,11 @@ export class Store extends EventListener {
     this._actions = new ActionManager(this);
     // 数据变更时触发插件的 onDataChange 钩子和订阅通知
     const onDataChange: DataChangeCallback = (path, newValue, oldValue) => {
-      this._plugins.triggerDataChange(path, newValue, oldValue);
-      this._emitChange(path);
+      try {
+        this._plugins.triggerDataChange(path, newValue, oldValue);
+      } finally {
+        this._emitChange(path);
+      }
     };
     this._data = new DataManager(this._initialState, onDataChange);
   }
@@ -79,7 +84,7 @@ export class Store extends EventListener {
    * @param args - 传递给 action 的参数
    * @returns action 执行结果
    */
-  dispatch<T = any>(name: string, ...args: any[]): Promise<T> {
+  dispatch<T = unknown>(name: string, ...args: unknown[]): Promise<T> {
     return this._actions.dispatch(name, ...args);
   }
 
@@ -132,9 +137,15 @@ export class Store extends EventListener {
     }
     let oldValue = this.getState(path);
     const handler = () => {
-      const newValue = this.getState(path);
-      callback(newValue, oldValue);
-      oldValue = newValue;
+      if (this._emitting.has(keyStr)) return;
+      this._emitting.add(keyStr);
+      try {
+        const newValue = this.getState(path);
+        callback(newValue, oldValue);
+        oldValue = newValue;
+      } finally {
+        this._emitting.delete(keyStr);
+      }
     };
     const eventName = `__sub:${keyStr}`;
     this.on(eventName, handler);
@@ -145,8 +156,16 @@ export class Store extends EventListener {
 
   /**
    * 触发订阅通知
+   * 注意：仅通知路径自身及其祖先路径的订阅者。
+   * 当整体替换父路径时（如 set("user", newObj)），后代路径（如 "user.name"）的订阅者不会被通知。
    */
   private _emitChange(path: string[]) {
+    if (path.length === 0) {
+      for (const name of this._eventNames()) {
+        if (name.startsWith('__sub:')) this.emit(name);
+      }
+      return;
+    }
     const pathStr = path.join('.');
     this.emit(`__sub:${pathStr}`);
     for (let i = path.length - 1; i >= 0; i--) {

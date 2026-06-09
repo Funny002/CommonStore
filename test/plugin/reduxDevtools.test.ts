@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach, beforeAll } from "vitest";
-import { Store, ReduxDevtools } from "../../lib";
+import { Store } from "../../lib";
+import { ReduxDevtools } from "../../lib/redux-devtools";
 
 describe("ReduxDevtools 插件", () => {
   let store: Store;

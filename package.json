@@ -15,6 +15,11 @@
       "types": "./dist/vue-devtools.d.ts",
       "import": "./dist/vue-devtools.es.js",
       "require": "./dist/vue-devtools.cjs.js"
+    },
+    "./redux-devtools": {
+      "types": "./dist/redux-devtools.d.ts",
+      "import": "./dist/redux-devtools.es.js",
+      "require": "./dist/redux-devtools.cjs.js"
     }
   },
   "scripts": {

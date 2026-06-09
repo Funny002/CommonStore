@@ -11,10 +11,10 @@ import type { Store } from './store';
  * @template TArgs - 参数类型数组
  * @template TReturn - 返回值类型
  */
-export type ActionHandler<TArgs extends any[] = any[], TReturn = any> = (store: Store, ...args: TArgs) => TReturn | Promise<TReturn>;
+export type ActionHandler<TArgs extends unknown[] = unknown[], TReturn = unknown> = (store: Store, ...args: TArgs) => TReturn | Promise<TReturn>;
 
 /** 所有已注册 action 的通用处理函数类型 */
-type AnyActionHandler = ActionHandler<any[], any>;
+type AnyActionHandler = ActionHandler<unknown[], unknown>;
 
 /**
  * Action 管理器类
@@ -87,23 +87,27 @@ export class ActionManager {
    * @returns action 执行结果
    * @throws 如果 action 不存在或执行出错
    */
-  async dispatch<TArgs extends any[], TReturn>(name: string, ...args: TArgs): Promise<TReturn> {
+  async dispatch<TArgs extends unknown[], TReturn>(name: string, ...args: TArgs): Promise<TReturn> {
     const handler = this.actions.get(name);
     if (!handler) {
       const available = this.getActionNames().join(', ');
       throw new Error(`Action "${name}" not found. Available actions: ${available || '(none)'}`);
     }
-    // 触发 beforeAction 钩子，允许插件修改参数
     const processedArgs = this.store.plugins.triggerBeforeAction(name, args);
     try {
-      // 执行 action 处理器
       const result = await handler(this.store, ...processedArgs);
-      // 触发 afterAction 钩子
-      this.store.plugins.triggerAfterAction(name, result, processedArgs);
+      try {
+        this.store.plugins.triggerAfterAction(name, result, processedArgs);
+      } catch {
+        // 插件钩子异常不污染 action 返回结果
+      }
       return result as TReturn;
     } catch (error) {
-      // 触发错误处理钩子
-      this.store.plugins.triggerErrorAction(name, error instanceof Error ? error : new Error(String(error)), processedArgs);
+      try {
+        this.store.plugins.triggerErrorAction(name, error instanceof Error ? error : new Error(String(error)), processedArgs);
+      } catch {
+        // 插件钩子异常不覆盖原始 action 错误
+      }
       throw error;
     }
   }
