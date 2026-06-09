@@ -1,6 +1,6 @@
 /**
- * 从字母数字字符集中随机选择一个字符
- * @returns 随机字符 [A-Za-z0-9]
+ * 生成一个随机字母数字字符
+ * @returns 随机字符（A-Z a-z 0-9）
  */
 export function randomChar() {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
@@ -9,9 +9,9 @@ export function randomChar() {
 
 /**
  * 生成指定长度的随机字符串
- * @param length - 字符串长度（0 ≤ length ≤ 100000）
- * @returns 随机字符串 [A-Za-z0-9]
- * @throws 当 length < 0 或 length > 100000 时抛出错误
+ * @param length - 字符串长度，必须 >= 0 且 <= 100000
+ * @returns 随机字符串
+ * @throws 当长度不合法时抛出 Error
  */
 export function randomString(length: number): string {
   if (length < 0) throw new Error(`randomString: length must be >= 0, got ${length}`);
@@ -20,11 +20,21 @@ export function randomString(length: number): string {
 }
 
 /**
- * 生成格式化 ID
- * 支持自定义格式，如 'xxx-xxx' 或 'yyy-xxx'
- * @param format - 格式模板，x=随机字符[A-Za-z0-9]，y=随机数字，n=空
- * @param prefix - 可选的前缀
- * @returns 生成的 ID
+ * 生成格式化的唯一 ID
+ *
+ * 占位符规则：
+ * - `x` 替换为随机字母数字字符（A-Z a-z 0-9）
+ * - `y` 替换为随机数字（0-9）
+ * - `n` 替换为空字符串（移除）
+ *
+ * @param format - ID 格式模板，默认 `'xxx-xxx'`
+ * @param prefix - 可选前缀，会以 `_` 与 ID 主体连接
+ * @returns 格式化后的 ID 字符串
+ *
+ * @example
+ * generateId()                       // 'aB3-xY9'
+ * generateId('xxyy')                 // 'aB39'
+ * generateId('xxx-xxx', 'user')      // 'user_aB3-xY9'
  */
 export function generateId(format = 'xxx-xxx', prefix?: string) {
   return (

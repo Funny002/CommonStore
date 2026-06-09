@@ -1,28 +1,23 @@
+/** 事件监听函数类型 */
+export type EventFunction = (...args: any[]) => void;
+
 /**
  * EventListener 事件系统模块
  *
  * 轻量级事件发射器，支持 on / off / once / emit / removeAll / clear。
- * Store 类通过继承 EventListener 获得事件监听能力，用于路径订阅通知。
- */
-export type EventFunction = (...args: any[]) => void;
-
-/**
- * 事件监听器类
- * 支持 on、off、once、emit 等标准事件方法
+ * Store 类通过继承获得路径订阅通知能力。
  */
 export class EventListener {
   /** 事件到监听器数组的映射表 */
   private _listener: Map<string, EventFunction[]>;
 
-  /**
-   * 构造函数，初始化事件映射表
-   */
+  /** 构造函数，初始化事件映射表 */
   constructor() {
     this._listener = new Map();
   }
 
   /**
-   * 触发指定事件
+   * 触发指定事件，依次调用所有注册的监听器
    * @param eventName - 事件名称
    * @param args - 传递给监听器的参数
    */
@@ -44,7 +39,7 @@ export class EventListener {
   }
 
   /**
-   * 移除事件监听器
+   * 移除指定的事件监听器
    * @param eventName - 事件名称
    * @param listener - 要移除的监听函数
    */
@@ -86,6 +81,7 @@ export class EventListener {
 
   /**
    * 获取所有已注册的事件名称（供子类内部使用）
+   * @returns 事件名称数组
    */
   protected _eventNames(): string[] {
     return Array.from(this._listener.keys());

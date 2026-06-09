@@ -1,9 +1,9 @@
 /**
- * 生成 [min, max] 区间内的随机整数（含两端）
+ * 生成指定范围内的随机整数（含两端）
  * @param min - 最小值（整数）
  * @param max - 最大值（整数）
- * @returns min ~ max 范围内的随机整数
- * @throws 当 min > max 或参数为非整数时抛出错误
+ * @returns 随机整数
+ * @throws 参数非整数或 min > max 时抛出 Error
  */
 export const randNum = (min: number, max: number) => {
   if (!Number.isInteger(min) || !Number.isInteger(max)) {
@@ -16,7 +16,7 @@ export const randNum = (min: number, max: number) => {
 };
 
 /**
- * 生成随机个位数字 0-9
- * @returns 0-9 之间的随机整数
+ * 生成 0-9 的随机数字
+ * @returns 随机个位整数
  */
 export const randDigits = () => Math.floor(Math.random() * 10);
