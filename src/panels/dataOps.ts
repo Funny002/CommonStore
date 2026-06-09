@@ -73,14 +73,14 @@ export function initDataOps(store: Store) {
   qs("#btn-find").addEventListener("click", () => {
     const key = (qs("#find-key") as HTMLInputElement).value;
     const v = (qs("#find-val") as HTMLInputElement).value;
-    const result = store.data.find((val, k) => k === key && val === v, true);
+    const result = store.data.find((val, k) => k === key && val === v);
     qs("#find-result").innerHTML = result ? JSON.stringify(result, null, 2) : "未找到";
   });
 
   qs("#btn-findAll").addEventListener("click", () => {
     const key = (qs("#find-key") as HTMLInputElement).value;
     const v = (qs("#find-val") as HTMLInputElement).value;
-    const results = store.data.findAll((val, k) => k === key && val === v, true);
+    const results = store.data.findAll((val, k) => k === key && val === v);
     qs("#find-result").innerHTML = results.length ? results.map((r) => JSON.stringify(r)).join("\n") : "未找到";
   });
 }

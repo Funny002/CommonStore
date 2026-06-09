@@ -24,6 +24,9 @@ const persistPlugin = Persist({ key: "commonstore-demo", debounce: 500 });
 const reduxPlugin = ReduxDevtools({ name: "CommonStoreDemo" });
 const vuePlugin = VueDevtools(undefined, { inspectorLabel: "CommonStore Demo" });
 
+// 清除旧 demo 数据避免空对象覆盖初始状态
+localStorage.removeItem("commonstore-demo");
+
 store.use(loggerPlugin, historyPlugin, persistPlugin, reduxPlugin, vuePlugin);
 registerDemoActions(store);
 

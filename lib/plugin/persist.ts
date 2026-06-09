@@ -94,7 +94,7 @@ export const Persist = (options: PersistOptions = {}): Plugin<Store> => {
       save = debounce(doSave, opts.debounce);
 
       const saved = loadSaved();
-      if (saved) {
+      if (saved && Object.keys(saved).length > 0) {
         if (opts.paths.length > 0) {
           store.data.batch(() => {
             for (const p of opts.paths) {
